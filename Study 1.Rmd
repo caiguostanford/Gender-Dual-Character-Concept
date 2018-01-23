@@ -1,0 +1,158 @@
+---
+title: "Study 1"
+author: "Cai Guo"
+date: "10/18/2017"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+---
+
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(lmerTest)
+library(car)
+library(lme4)
+library(MASS)
+dt <- read.csv("~/Desktop/Stanford/Dual Character Concepts/Dual Character Concept Data/Study 1.csv")
+```
+
+#Demographics
+```{r message=FALSE, warning=FALSE}
+#1 = Female, 2 = Male, 3 = Other
+prop.table(table(dt$ParticipantGender))
+#If there were participants who identified as Other, what specific identity they provided:
+summary(dt$GenderSpecific)
+#Age
+summary(dt$Age)
+```
+
+#Clean the dataset and turn the dataset into long-form for analyses
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
+dt_tidy = dt %>%
+  mutate(index=rownames(dt)) %>%
+  gather(variable, value, Artist.I:Woman.Tr) %>%
+  group_by(index) %>%
+  separate(variable, into=c("Concept", "Statement"))
+
+dt_tidy$Statement = as.factor(dt_tidy$Statement)
+levels(dt_tidy$Statement)[levels(dt_tidy$Statement)=="I"] <- "Good"
+levels(dt_tidy$Statement)[levels(dt_tidy$Statement)=="Tr"] <- "True"
+```
+
+#Study 1
+
+##Compare Man and Woman for Study1
+```{r message=FALSE, warning=FALSE}
+#Since the study is a within-subject design, we treat "subject" (known as index in the model) as a random effect. Moreover, since there was only one item in Man and Woman respectively, we do not include specific item as a random effect [such modeling isn't possible], but will do so for later analyses where dual-character and control concepts are involved. 
+
+#interaction
+lmg = lmer(value~Concept*Statement+(1|index), data = subset(dt_tidy, Concept == "Man"|Concept == "Woman"))
+lmerTest::anova(lmg)
+summary(lmg)
+
+#main effect
+lmgc = lmer(value~Concept+(1|index), data = subset(dt_tidy, Concept == "Man"|Concept == "Woman"))
+lmerTest::anova(lmgc)
+summary(lmgc)
+```
+The results showed that Man and Woman did not differ in any aspects -- therefore, we will combined Man and Woman into the Gender category in subsequent analyses. 
+
+##The model testing the effects of statement type and concept type and their interaction [when "man" and "woman" combined into gender]
+```{r message=FALSE, warning=FALSE}
+#sort specific concepts into their respective kinds
+
+dt_c = within(dt_tidy, {Type = ifelse(Concept %in% c("Artist", "Rock", "Criminal", "Soldier", "Teacher", "Poem", "Love", "Friend", "Scientist", "Mother", "Mentor", "Comedian", "Minister", "Theory", "Boyfriend", "Argument", "Sculpture", "ArtMuseum", "Musician", "Novel", "Teacher"), "DualCharacter", ifelse(Concept %in% c("Optician", "Baker", "Blog", "Doorman", "Caseworker", "TOC", "Tailor", "Bartender", "Rustling", "Welder", "Catalog", "Chair", "Firefighter", "Uncle", "Cashier", "Stroller", "Obituary", "Cousin", "Waitress", "Mayor"), "Control", "Gender"))})
+
+## Statement = Good vs. True
+## Type = Dual-Character vs. Control. vs. Gender
+## Random Effects = 1.subjects 2. specific concept item
+
+##Test interaction
+dt_c$Type = as.factor(dt_c$Type)
+lm1 = lmer(value~Type*Statement+(1|Concept)+(1|index), dt_c)
+lmerTest::anova(lm1)
+summary(lm1)
+
+##test main effects 
+
+lmt = lmer(value~Type+(1|Concept)+(1|index), dt_c)
+lmerTest::anova(lmt)
+summary(lmt)
+
+lms = lmer(value~Statement+(1|Concept)+(1|index), dt_c)
+lmerTest::anova(lms)
+summary(lms)
+```
+
+##Comparing different types of concepts for only "good" statement
+```{r message=FALSE, warning=FALSE}
+#good
+lm2g = lmer(value~Type+(1|Concept)+(1|index), data = subset(dt_c, Statement == "Good"))
+lmerTest::anova(lm2g)
+summary(lm2g)
+
+#change reference level to get all comparisons
+dt_c$Type = relevel(dt_c$Type, ref = "DualCharacter")
+lm2g = lmer(value~Type+(1|Concept)+(1|index), data = subset(dt_c, Statement == "Good"))
+summary(lm2g)
+```
+
+The results showed that the three types of concepts did not differ from one another in ratings of "good" statements.
+
+##Comparing different types of concepts for only "true" statements
+```{r message=FALSE, warning=FALSE}
+#true
+lm2 = lmer(value~Type+(1|Concept)+(1|index), data = subset(dt_c, Statement == "True"))
+lmerTest::anova(lm2)
+summary(lm2)
+
+#change reference level
+dt_c$Type = relevel(dt_c$Type, ref = "Gender")
+lm2 = lmer(value~Type+(1|Concept)+(1|index), data = subset(dt_c, Statement == "True"))
+summary(lm2)
+```
+The results showed gender and dual-character concepts did not differ significantly from each other in ratings of "true" statements, t(39) = 0.60, p = .49. However, they both had significantly higher ratings of "true" statements than did control concepts (gender vs. control: t(39) = -2.64, p = .01, dual-character vs. control: t(39) = -7.82, p <.001).
+
+####Bar Graph for Statements and Concepts (error bars represent 95% confidence intervals)
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+sem <- function(x) {sd(x, na.rm=TRUE) / sqrt(length(x))}
+
+ci <- function(x) {qt(.975, df=length(x)-1)*sem(x)}
+
+aggc1 <- dt_c %>%
+  group_by(Type, Statement) %>%
+  summarise(Mean = mean(value,na.rm=T),
+            se = ci(value), #confidence interval
+            sd = sd(value),
+            upper = Mean + se,
+            lower = Mean - se)
+
+ggplot(aggc1,aes(x=Type, y=Mean, fill=Statement, label = round(Mean, digits=2))) +
+  geom_bar(position="dodge", stat="identity") + scale_fill_manual(values=c("skyblue2", "pink")) +
+  geom_errorbar(   aes( ymax=upper, ymin=lower ) , 
+                     		width   =.25,
+	                    	linetype="solid", position=position_dodge(.9)
+	                    	) + 
+  theme_bw() + ggtitle("Ratings of Statements by Concept and Statement Type") + geom_text(size = 3, position = position_dodge(width=.9), vjust=10)
+
+#get descriptives (e.g. means and SDs)
+print(aggc1)
+```
+
+####Rank Order Graph for True Statements
+```{r}
+d_true = dt_c %>%
+  filter(Statement=="True") %>%
+  spread(Statement, value)
+
+agg5 <- d_true %>%
+  group_by(Concept, Type) %>%
+  summarise(Mean = mean(True,na.rm=T))
+
+ggplot(agg5, aes(x=reorder(Concept, Mean), y=Mean, fill = Type, label = round(Mean, digits=2))) + geom_bar(width = .5, stat="identity",position = position_dodge(width = .5)) + ggtitle("Rank Order of True Statement Ratings by Concept") + scale_x_discrete(name = "Concept") + scale_fill_manual(values = c("grey", "black", "beige")) +  scale_y_continuous(name="Mean Ratings for True Statements", breaks = c(1:7), sec.axis = sec_axis(~.*1, name = "Mean Rating for True Statements", breaks = c(1:7)))+ coord_flip(ylim=c(1,7)) + theme (axis.text.x = element_text(vjust=0.7, size=8, angle=0)) + theme (axis.text.y = element_text(vjust=0.7, size=6, angle=0))
+```

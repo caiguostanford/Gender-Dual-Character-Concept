@@ -1,0 +1,120 @@
+---
+title: "Study 2b & 4a/b Pre-registration"
+author: "Cai Guo"
+date: "11/12/2017"
+output: html_document
+---
+##Introduction
+
+The two proposed studies are extensions of Experiments 2 and 4 in Knobe, Prasada, & Newman (2013) titled "Dual character concepts and the normative dimension of conceptual representation" published in Cognition. The original experiments found that some concepts (e.g. artists) have two separate dimensions of representation, one of which concerns concrete features (e.g. being able to create art) and the other of which concerns abstract values (e.g. producing art that inspires people and caring about artistic values), whereas other concepts (e.g. waitress) only have a single dimension which solely concerns concrete features (e.g. providing good service to customers) or only have a dimension that solely concerns abstract traits (e.g. the invisible "essence"" in biological kinds). In Experiment 2, Knobe et al. (2013) used specific vignettes (where an individual possesses concrete traits but lacks abtract attributes) and asked participants to rate "there is a sense in which someone is a X" (concrete features) and "ultimately if you think what it really means to be a X, you have to say someone is not a X" (abstract values). They found that only for dual-character concepts did participants endorse both statements (someone is in a sense a X but ultimately someone is not a X), whereas for control concepts participants only endorsed the concrete statement but not the ultimate statement and for natural kinds participants only endorsed the ultimate statement but not the concrete claim. In Experiment 4, which used the same vignettes as in Study 2, participants were randomly assigned to a condition where they either rated a single member-statement such as "She is a X" or rated a single non-member statement such as "she is not a X" -- the authors found that for dual-character concepts, member and non-member statements were rated equally, whereas for control concepts, member statements were rated significantly higher than non-member statements and for natural kinds, non-member statements were rated significantly higher than member statements. They also examined the distributions of the ratings for both statements for dual-character concepts, and found that the distributions were bimodal, especially for non-member statements -- this bimodality further revealed the duality of the conceptual representations of dual-character concepts. 
+
+In our attempt, we plan to expand Experiment 2 and 4 by including two gender vignettes (man and woman) and compare participants's responses to these vignettes against their responses to vignettes depicting natural kinds, control concepts, and dual-character concepts. For each experiment, we will also have two different versions, one of which would have the same format as in the original studies and thus examine participants' own attitudes about the characters in the vignettes but the other of which would change the statements to include "society would think" and thus examine how participants think society might perceive the characters in the vignettes. We have already conducted the first-perspective version of Experiment 2 (named as Experiment 2a) and therefore the current pre-registration concerns only the "society" version of Experiment 2 (Experiment 2b; as well as the comparison between 2a and 2b) and both first-person and "society" versions for Experiment 4.
+
+##Methods
+###Planned Sample
+Planned sample size for both Experiment 2 and Experiment 4 is 300 (150 in the first-person version and 150 in the society version).
+
+Participants will be recruited and complete all the studies on Amazon Mechanical Turk. 
+
+###Materials
+
+For both studies, we will use the vignettes directly from Experiments 2 and 4 in Knobe et al. (2013) -- please see below for their description of study materials. For gender items, we generated our own materials -- you can find the gender materials in the study materials folder. Since the original materials do not belong to us, we do not publish the original materials -- questions about the original materials should be addressed to the authors of Knobe et al. (2013).
+
+**Study 2**:
+
+Quotes from Knobe et al. (2013) with slight modifications for our studies.
+
+"For each of these concepts, we constructed a vignette about an object that was described as possessing the concrete properties characteristic of a category but lacking the relevant normative properties. In addition, we included 10 vignettes of natural kind categories adapted from Keil (1989). These vignettes described things that had the concrete superficial characteristics of a given category, but lacked crucial underlying causal factors of that category".
+
+"Each participant will receive all 32 vignettes in a different random order. After
+each vignette, participants will judge the truth of the following two statements concerning an object’s category membership on a 7 point scale. (i) There is a sense in which this person is a scientist [pharmacist/raccoon]; (ii) Ultimately when you think about what it really means to be a scientist [pharmacist/raccoon], you would have to say that this person is not truly a scientist [pharmacist/raccoon]. We will refer to these statements as the ‘member statement’ and the ‘nonmember statement.’" Participants in the Society version would rate slightly different statements: e.g. member-statements: "Society would say that there is a sense in which this person is a scientist"; non-member statements: "Ultimately when thinking about what it really means to be a scientist, society would say that this person is not truly a scientist"
+
+**Study 4**
+"Procedure: Each participant will receive all 32 vignettes from Experiment 2 in a different random order. After each vignette, participants will be asked to evaluate the truth of an unqualified statement. Participants will be assigned either to the member condition or the non-member condition. Participants in the member condition will be asked to judge the truth of unqualified statements of category membership (e.g., ‘this person is an artist’), while participants in the nonmember condition will be asked to judge the truth of unqualified statements of non-membership (e.g., ‘this person is not an artist’). Participants will judge each statement on a 1-7 scale". Participants in the Society version would rate slightly different statements -- e.g. member statement: Society would say that this person is an artist; non-member statement: Society would say that this person is not an artist.
+
+#Analysis (Study 2 and 4 follow the same analysis plan)
+
+Before the analyses, we will first filter out those who didn't answer the attention check question correctly (which asked whether the study asked about their evaluations of the statements or their common knowledge, and the correct answer is their evaluations of the statements). 
+
+##Filtering 
+```{r}
+data = data %>%
+  filter(Filter == 1)
+```
+
+For both Study 2 and 4, we will first compare whether the two gender items are different in participants' ratings of the "member" and "non-member" statements in the first perspective version (Study 2a and 4a), by conducting a linear mixed-effect model with participants' ratings as the dependent variable and item (Man vs. Woman) and statement type (member vs. non-member) as two predicting variables and participant as the random variable. If Man and Woman do not differ from each other in Study 2a or 4a [the interaction between gender and statement is not significant and the main effect of item (man vs. woman) is not significant either], we will keep using gender as a single category in all subsequent analyses (for both a and b versions). However, if man and woman differ significantly from each other in Study 2a or 4a [either the interaction is significant or the main effect of concept is significant or both], we will examine man and woman separately in the subsequent analyses.
+
+##Man vs. Woman
+```{r message=FALSE, warning=FALSE}
+#test interaction
+lm1 = lmer(value~Statement*Concept+(1|index), data = subset(data_a, Concept == "Man"|Concept == "Woman"))
+lmerTest::anova(lm1)
+summary(lm1)
+
+#test main effect of concept (man vs. woman)
+lm2 = lmer(value~Concept+(1|index), data = subset(data_a, Concept == "Man"|Concept == "Woman"))
+lmerTest::anova(lm2)
+summary(lm2)
+```
+
+###Graph demonstrating Man vs. Woman
+```{r}
+sem <- function(x) {sd(x, na.rm=TRUE) / sqrt(length(x))}
+
+ci <- function(x) {qt(.975, df=length(x)-1)*sem(x)}
+
+graph <- data %>%
+  group_by(Concept, Statement) %>%
+  summarise(Mean = mean(value,na.rm=T),
+            se = ci(value),
+            upper = Mean + se,
+            lower = Mean - se)
+
+ggplot(graph,aes(x=Concept, y=Mean, fill=Statement, label = round(Mean, digits=2))) +
+  geom_bar(position="dodge", stat="identity") + scale_fill_manual(values=c("skyblue2", "pink")) +
+  geom_errorbar(   aes( ymax=upper, ymin=lower ) , 
+                     		width   =.25,
+	                    	linetype="solid", position=position_dodge(.9)
+	                    	) + 
+  theme_bw() + ggtitle("Ratings of Statements by Concept and Statement Type") + geom_text(size = 3, position = position_dodge(width=.9), vjust=5)
+```
+
+##Within-version analyses
+We would then conduct within-version analyses (specific to experiment a or b) for Experiment 2a/2b and 4a/4b [see the separate document "Study 2a" for analyses plan and codes -- the same plan and codes will be used for study 2b, 4a, and 4b].
+
+##Interaction between concept type, statement type, and version
+We would then examine the 3-way interaction between concept type (dual-character vs. control vs. natural kind vs. gender[or Man vs. Woman separately if they are different]), statement (member vs. non-member), and version (society vs. first-person perspective, i.e., 2a vs. 2b/ 4a vs. 4b) to see if the participants in the two versions differed from each other in their ratings of the statements for different types of concepts (i.e. whether the framing the task as examining their own attitudes versus societal attitudes made a difference in their endorsement of the statements).
+```{r}
+#all inclusive 3-way interaction
+lm3 = lmer(value~Type*Statement*Version+(1|index)+(1|Concept), data)
+lmerTest::anova(lm3)
+summary(lm3)
+```
+
+##we will then conduct specific version comparisons for each specific comparison between 2 different concept types. 
+E.g. we will compare whether the difference between dual-character concepts and Man would differ for society and first-person versions (i.e. is the difference between dual-character concepts and Man larger or smaller in the first-person version than in the society version?) -- we will do this for every possible pair of concept types. 
+
+###Specific comparisons between Concept Types (only list some samples -- we will do this for every possible comparison)
+```{r}
+#Compare dual and man
+data_dm = data %>%
+  filter(Type == "DualCharacter"| Type == "Man")
+
+#3-way Interaction comparing whether the interaction between concept type and statement type differed significantly for the two versions
+lm7 = lmer(value~Type*Statement*Condition+(1|Concept)+(1|index), data_dm)
+lmerTest::anova(lm7)
+summary(lm7)
+
+```
+
+```{r}
+#Compare dual and woman
+data_dw = data %>%
+  filter(Type == "DualCharacter"| Type == "Woman")
+
+#3-way Interaction comparing whether the interaction between concept type and statement type differed significantly for the two versions
+lm8 = lmer(value~Type*Statement*Condition+(1|Concept)+(1|index), data_dw)
+lmerTest::anova(lm8)
+summary(lm8)
+```
+......we will do the same analyses for every possible pair of concept types.
