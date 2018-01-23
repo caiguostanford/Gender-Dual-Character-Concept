@@ -320,7 +320,8 @@ ggplot(aggv2,aes(x=Type, y=Mean, fill=Statement, label = round(Mean, digits=2)))
   theme_bw() + ggtitle("Ratings of Statements by Concept and Statement Type") + geom_text(size = 3, position = position_dodge(width=.9), vjust=7) + scale_x_discrete(limits = c("DualCharacter", "Control", "NaturalKind", "Man", "Woman")) + scale_y_discrete(limits=seq(0,7, by=1))+labs(x = "Concept Type")
 ```
 
-#BayesFactor analyses for examining to which type of concepts Man and Woman are closest to, respectively.
+#BayesFactor analyses for examining to which type of concepts Man and Woman are closest to, respectively [for Studies 2b, 4a, and 4b, we would conduct these analyses if the linear mixed models showed that gender concepts were significantly different from all other concept types, to infer which type of concepts gender concepts are closest to despite being different from all of them].
+
 ```{r}
 #creating new Type variables to prepare for the BayesFactor analyses.
 ##Type1 is for the model A where Dual-Character and Man are treated as the same
