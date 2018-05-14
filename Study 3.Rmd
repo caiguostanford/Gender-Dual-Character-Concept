@@ -66,8 +66,6 @@ anova(lmgc)
 summary(lmgc)
 ```
 
-The results showed that there was a significant interaction between gender and statement and a significant main effect of gender such that Man, regardless of statement type, received higher ratings than Woman. Therefore, we will treat the two items separately rather than combining them into a single category "gender" in the subsequent analyses. 
-
 ##Graph comparing "Man" and "Woman"
 ```{r message=FALSE, warning=FALSE, echo=FALSE}
 sem <- function(x) {sd(x, na.rm=TRUE) / sqrt(length(x))}
@@ -190,8 +188,6 @@ lmnem2 = lmer(value~Type+(1|index)+(1|Concept), data = subset(dv, (Type == "Cont
 lmerTest::anova(lmnem2)
 summary(lmnem2)
 ```
-
-There was a significant main effect of concept type, F(1,9) = 9.49, p = .01, such that regardless of statement type, the ratings for "Man" were higher than those for control concepts, t(9) = 3.08, p = .01. More importantly, there was also a significant interaction between concept and statement F(1, 3075) = 14.40, p <.001, such that for man, non-member statements were rated significantly higher than member statements t(146) = 2.16, p = .03, but for control concepts, non-member statements were rated significantly lower than member statements, t(2792) = -5.74, p < .001. Examining the interaction in terms of statement type, we found that Control concepts and Man did not differ significantly in member statements, but Man had significantly higher ratings in Nonmember statements than did control concepts, t(9) = -4.21, p = .002.
 
 #Compare Woman, Dual-Character Concepts, and Control Concepts
 ```{r}
