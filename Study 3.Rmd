@@ -15,6 +15,7 @@ library(car)
 library(lme4)
 library(BayesFactor)
 library(gridExtra)
+library(RePsychLing)
 dt <- read.csv("~/Desktop/Stanford/Dual Character Concepts/Dual Character Concept Data/Study 3.csv")
 
 #we filtered out those who didn't not answer the attention check question correctly
@@ -52,17 +53,20 @@ levels(dt_tidy$Statement)[levels(dt_tidy$Statement)=="M"] <- "Member"
 #Since the study is a within-subject design, we treat "subject" (known as index in the model) as a random effect. Moreover, since there was only one item in Man and Woman respectively, we do not include specific item as a random effect [such modeling isn't possible], but will do so for later analyses where dual-character and control concepts are involved. 
 
 #interaction
-lmg = lmer(value~Concept*Statement+(1|index), data = subset(dt_tidy, Concept == "Man"|Concept == "Woman"))
-lmerTest::anova(lmg)
+lmg = lmer(value~Concept*Statement+(1+Statement*Concept|index), data = subset(dt_tidy, Concept == "Man"|Concept == "Woman"))
+
+#the maximal model isn't possible because the number of random effects exceeds the number of observations. We therefore refitted the model with separte by-index random slopes for Statement and Concept
+lmg = lmer(value~Concept*Statement+(1+Statement+Concept|index), data = subset(dt_tidy, Concept == "Man"|Concept == "Woman"))
+anova(lmg)
 summary(lmg)
 
 #main effect
-lmgc = lmer(value~Concept+(1|index), data = subset(dt_tidy, Concept == "Man"|Concept == "Woman"))
-lmerTest::anova(lmgc)
+lmgc = lmer(value~Concept+(1+Statement+Concept|index), data = subset(dt_tidy, Concept == "Man"|Concept == "Woman"))
+anova(lmgc)
 summary(lmgc)
 ```
 
-The results showed that there was no significant interaction between gender and statement but there was a significant main effect of gender such that Man, regardless of statement type, received higher ratings than Woman. Therefore, we will treat the two items separately rather than combining them into a single category "gender" in the subsequent analyses. 
+The results showed that there was a significant interaction between gender and statement and a significant main effect of gender such that Man, regardless of statement type, received higher ratings than Woman. Therefore, we will treat the two items separately rather than combining them into a single category "gender" in the subsequent analyses. 
 
 ##Graph comparing "Man" and "Woman"
 ```{r message=FALSE, warning=FALSE, echo=FALSE}
@@ -100,26 +104,26 @@ dv$Type = relevel(dv$Type, ref="Man")
 dv$Statement = relevel(dv$Statement, ref="Member")
 
 #Interaction
-lm = lmer(value~Type*Statement+(1|Concept)+(1|index), dv)
-lmerTest::anova(lm)
+lm = lmer(value~Type*Statement+(1+Statement|Concept)+(1+Type*Statement|index), control = lmerControl(optCtrl = list(maxfun=100000)), dv)
+anova(lm)
 summary(lm)
 
 #Main effect of Concept Type
-lm1 = lmer(value~Type+(1|Concept)+(1|index), dv)
-lmerTest::anova(lm1)
+lm1 = lmer(value~Type+(1+Statement|Concept)+(1+Type*Statement|index), control = lmerControl(optCtrl = list(maxfun=100000)), dv)
+anova(lm1)
 summary(lm1)
 
 #Main effect of Statement Type
-lm2 = lmer(value~Statement+(1|Concept)+(1|index), dv)
-lmerTest::anova(lm2)
+lm2 = lmer(value~Statement+(1+Statement|Concept)+(1+Type*Statement|index), control = lmerControl(optCtrl = list(maxfun=100000)), dv)
+anova(lm2)
 summary(lm2)
 ```
 
 #Compare Man, Dual-Character Concepts, and Control Concepts
 ```{r}
 #omnibus analysis for the Dual-Character, Man, and Control
-lm33 = lmer(value~Type*Statement+(1|Concept)+(1|index), data = subset(dv, (Type == "Control"| Type == "Man"|Type == "DualCharacter")))
-lmerTest::anova(lm33)
+lm33 = lmer(value~Type*Statement+(1+Statement|Concept)+(1+Type*Statement|index), control = lmerControl(optCtrl = list(maxfun=100000)), data = subset(dv, (Type == "Control"| Type == "Man"|Type == "DualCharacter")))
+anova(lm33)
 summary(lm33)
 ```
 
@@ -128,24 +132,24 @@ summary(lm33)
 #Compare dual and man (we are not interested in whether Statement Type alone had a main effect because this doesn't concern the differences between the types of concepts -- this applies to all of the subsequent comparisons between different types of concepts)
 
 #Interaction
-lmdm = lmer(value~Type*Statement+(1|Concept)+(1|index), data = subset(dv, Type == "DualCharacter"|Type == "Man"))
-lmerTest::anova(lmdm)
+lmdm = lmer(value~Type*Statement+(1+Statement|Concept)+(1+Type*Statement|index), control = lmerControl(optCtrl = list(maxfun=100000)), data = subset(dv, Type == "DualCharacter"|Type == "Man"))
+anova(lmdm)
 summary(lmdm)
 
 #main effect of concept type
 
-lmdm1 = lmer(value~Type+(1|Concept)+(1|index), data = subset(dv, Type == "DualCharacter"|Type == "Man"))
-lmerTest::anova(lmdm1)
+lmdm1 = lmer(value~Type+(1+Statement|Concept)+(1+Type*Statement|index), control = lmerControl(optCtrl = list(maxfun=100000)),, data = subset(dv, Type == "DualCharacter"|Type == "Man"))
+anova(lmdm1)
 summary(lmdm1)
 
 #examine only for dual-character
-lmd = lmer(value~Statement+(1|Concept)+(1|index), data = subset(dv, Type == "DualCharacter"))
-lmerTest::anova(lmd)
+lmd = lmer(value~Statement+(1+Statement|Concept)+(1+Statement|index), control = lmerControl(optCtrl = list(maxfun=100000)),, data = subset(dv, Type == "DualCharacter"))
+anova(lmd)
 summary(lmd)
 
-#examine only for man
-lmm = lmer(value~Statement+(1|index), data = subset(dv, Type == "Man"))
-lmerTest::anova(lmm)
+#examine only for man -- there was only one item in the concept type of "Man" -- therefore no by-item random slope or intercept in this case. Also no by-subject random slope for Statement [model unidentifiable] because it is fully confounded with the by-subject random intercept given that each participant only saw one concept (i.e. man) and rated both statement only for that one item.
+lmm = lmer(value~Statement+(1|index), control = lmerControl(optCtrl = list(maxfun=100000)),, data = subset(dv, Type == "Man"))
+anova(lmm)
 summary(lmm)
 
 #examine only for member statement
@@ -158,23 +162,22 @@ lmnem1 = lmer(value~Type+(1|index)+(1|Concept), data = subset(dv, (Type == "Dual
 lmerTest::anova(lmnem1)
 summary(lmnem1)
 ```
-Regardless of statement type, there was no difference in ratings between man and dual-character concepts, F(1,9) = 0.73, p = .42. However, there was a marginally significant interaction between concept and statement F(1,3075) = 3.80, p = .051, such that for man, non-member statement was rated significantly higher than the member statement t(146) = 2.16, p = .03 , but there was no significant difference between the two statements for dual-character concepts, t(2792) = 0.31, p = .76. We also examined this interaction in terms of statement type. Specifically, Dual-Character concepts and Man did not differ in ratings of Member statements, t(9) = 1.42, p = .20, and they did not differ significant in ratings of Nonmember statements, t(9) = 0.14, p = .89. Therefore, the two concept types did not differ in either member or non-member statements but the within concept difference between member and non-member statements is significant for Man but not significant for Dual-Character concepts. 
 
 #Compare Control and Man
 ```{r}
 #interaction
-lmcm = lmer(value~Type*Statement+(1|Concept)+(1|index), data = subset(dv, Type == "Control"| Type == "Man"))
-lmerTest::anova(lmcm)
+lmcm = lmer(value~Type*Statement+(1+Statement|Concept)+(1+Type*Statement|index), data = subset(dv, Type == "Control"| Type == "Man"))
+anova(lmcm)
 summary(lmcm)
 
 #main effect
-lmcm1 = lmer(value~Type+(1|Concept)+(1|index), data = subset(dv, Type == "Control"| Type == "Man"))
-lmerTest::anova(lmcm1)
+lmcm1 = lmer(value~Type+(1+Statement|Concept)+(1+Type*Statement|index), data = subset(dv, Type == "Control"| Type == "Man"))
+anova(lmcm1)
 summary(lmcm1)
 
 #examine only for control
-lmcmd = lmer(value~Statement+(1|index), data = subset(dv, Type == "Control"))
-lmerTest::anova(lmcmd)
+lmcmd = lmer(value~Statement+(1+Statement|Concept)+(1+Statement|index), data = subset(dv, Type == "Control"))
+anova(lmcmd)
 summary(lmcmd)
 
 #examine only for member statement
@@ -193,21 +196,21 @@ There was a significant main effect of concept type, F(1,9) = 9.49, p = .01, suc
 #Compare Woman, Dual-Character Concepts, and Control Concepts
 ```{r}
 #omnibus analysis for the Dual-Character, Woman, and Control
-lm44 = lmer(value~Type*Statement+(1|Concept)+(1|index), data = subset(dv, (Type == "Control"| Type == "Woman"|Type == "DualCharacter")))
-lmerTest::anova(lm44)
+lm44 = lmer(value~Type*Statement+(1+Statement|Concept)+(1+Type*Statement|index), data = subset(dv, (Type == "Control"| Type == "Woman"|Type == "DualCharacter")))
+anova(lm44)
 summary(lm44)
 ```
 
 #Compare Dual-Character Concepts and Woman
 ```{r}
 #interaction
-lmdw = lmer(value~Type*Statement+(1|Concept)+(1|index), data = subset(dv, Type == "DualCharacter"| Type == "Woman"))
-lmerTest::anova(lmdw)
+lmdw = lmer(value~Type*Statement+(1+Statement|Concept)+(1+Type*Statement|index), data = subset(dv, Type == "DualCharacter"| Type == "Woman"))
+anova(lmdw)
 summary(lmdw)
 
 #main effect
-lmdw1 = lmer(value~Type+(1|Concept)+(1|index), data = subset(dv, Type == "DualCharacter"| Type == "Woman"))
-lmerTest::anova(lmdw1)
+lmdw1 = lmer(value~Type+(1+Statement|Concept)+(1+Type*Statement|index), data = subset(dv, Type == "DualCharacter"| Type == "Woman"))
+anova(lmdw1)
 summary(lmdw1)
 
 #examine only for Woman (already examined dual-character in the above section)
@@ -216,22 +219,33 @@ lmerTest::anova(lmw)
 summary(lmw)
 ```
 
-The results showed that there was no significant interaction between Dual-Character Concepts and Woman. However, there was a significant main effect of concept type, F(1,9) = 6.49, p = .03 such that Woman had significantly lower ratings regardless of statement type than Dual-Character Concepts, t(9) = -2.55, p = .03.
 
 #Compare Control and Woman
 ```{r}
 #interaction
-lmcw = lmer(value~Type*Statement+(1|Concept)+(1|index), data = subset(dv, Type == "Control"| Type == "Woman"))
-lmerTest::anova(lmcw)
+lmcw = lmer(value~Type*Statement+(1+Statement|Concept)+(1+Type*Statement|index), data = subset(dv, Type == "Control"| Type == "Woman"))
+anova(lmcw)
 summary(lmcw)
 
 #main effect
-lmcw1 = lmer(value~Type+(1|Concept)+(1|index), data = subset(dv, Type == "Control"| Type == "Woman"))
-lmerTest::anova(lmcw1)
+lmcw1 = lmer(value~Type+(1+Statement|Concept)+(1+Type*Statement|index), data = subset(dv, Type == "Control"| Type == "Woman"))
+anova(lmcw1)
 summary(lmcw1)
 ```
 
-Control concepts were not different from woman -- no significant main effect of concept type or interaction between concept type and statetment type. 
+
+#Compare Dual and Control
+```{r}
+#interaction
+lmdc = lmer(value~Type*Statement+(1+Statement|Concept)+(1+Type*Statement|index), data = subset(dv, Type == "Control"| Type == "DualCharacter"))
+anova(lmdc)
+summary(lmdc)
+
+#main effect
+lmdc1 = lmer(value~Type+(1+Statement|Concept)+(1+Type*Statement|index), data = subset(dv, Type == "Control"| Type == "DualCharacter"))
+anova(lmdc1)
+summary(lmdc1)
+```
 
 #General Graph
 ```{r message=FALSE, warning=FALSE, echo=FALSE}
