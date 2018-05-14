@@ -159,7 +159,6 @@ dt_c$Type = relevel(dt_c$Type, ref = "Gender")
 lm2 = lmer(value~Type+(1|Concept)+(0+Type|index), data = subset(dt_c, Statement == "True"))
 summary(lm2)
 ```
-The results showed gender and dual-character concepts did not differ significantly from each other in ratings of "true" statements, t(39) = 0.60, p = .49. However, they both had significantly higher ratings of "true" statements than did control concepts (gender vs. control: t(39) = -2.64, p = .01, dual-character vs. control: t(39) = -7.82, p <.001).
 
 ####Bar Graph for Statements and Concepts (error bars represent 95% confidence intervals)
 ```{r message=FALSE, warning=FALSE, echo=FALSE}
