@@ -1,5 +1,5 @@
 ---
-title: "Study 2b & 4a/b Pre-registration"
+title: "Study 3b & 4a/b Pre-registration"
 author: "Cai Guo"
 date: "11/12/2017"
 output: html_document
