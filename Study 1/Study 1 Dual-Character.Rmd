@@ -1,0 +1,256 @@
+---
+title: "Study 1"
+author: "Cai Guo"
+date: "10/18/2017"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+---
+
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(lmerTest)
+library(car)
+library(lme4)
+library(MASS)
+library(RePsychLing)
+library(langcog)
+library(boot)
+library(brms)
+dt <- read.csv("~/Desktop/Stanford/Dual Character Concepts/Dual Character Concept Data/Study 1.csv")
+```
+
+#Set functions
+```{r}
+#set function for getting standardized coefficients for lmer models
+stdCoef.merMod <- function(object) {
+  sdy <- sd(getME(object,"y"))
+  sdx <- apply(getME(object,"X"), 2, sd)
+  sc <- fixef(object)*sdx/sdy
+  se.fixef <- coef(summary(object))[,"Std. Error"]
+  se <- se.fixef*sdx/sdy
+  return(data.frame(stdcoef=sc, stdse=se))
+}
+
+#set function for bootstrapping 95% CIs
+theta <- function(x,xdata,na.rm=T) {mean(xdata[x],na.rm=na.rm)}
+ci.low <- function(x,na.rm=T) {
+  mean(x,na.rm=na.rm) - quantile(boot(1:length(x),1000,theta,x,na.rm=na.rm)$thetastar,.025,na.rm=na.rm)}
+ci.high <- function(x,na.rm=T) {
+  quantile(boot(1:length(x),1000,theta,x,na.rm=na.rm)$thetastar,.975,na.rm=na.rm) - mean(x,na.rm=na.rm)}
+```
+
+#Demographics
+```{r message=FALSE, warning=FALSE}
+#1 = Female, 2 = Male, 3 = Other
+prop.table(table(dt$ParticipantGender))
+#If there were participants who identified as Other, what specific identity they provided:
+summary(dt$GenderSpecific)
+#Age
+summary(dt$Age)
+```
+
+#Clean the dataset and turn the dataset into long-form for analyses
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
+dt_tidy = dt %>%
+  mutate(index=rownames(dt)) %>%
+  gather(variable, value, Artist.I:Woman.Tr) %>%
+  group_by(index) %>%
+  separate(variable, into=c("Concept", "Statement"))
+
+dt_tidy$Statement = as.factor(dt_tidy$Statement)
+dt_tidy$Concept = as.factor(dt_tidy$Concept)
+levels(dt_tidy$Statement)[levels(dt_tidy$Statement)=="I"] <- "Good"
+levels(dt_tidy$Statement)[levels(dt_tidy$Statement)=="Tr"] <- "True"
+```
+
+#Study 1
+
+##Compare Man and Woman for Study1
+```{r message=FALSE, warning=FALSE}
+#Since the study is a within-subject design, we treat "subject" (known as index in the model) as a random effect. Moreover, since there was only one item in Man and Woman respectively, we do not include specific item as a random effect [such modeling isn't possible], but will do so for later analyses where dual-character and control concepts are involved. 
+
+#interaction
+##We first fitted a maximal random-effects model with a by-subject random intercept and a by-subject random slope for the interaction b/w Concept and Statement Type. 
+lm_gender = lmer(value~Concept*Statement+(1+Concept*Statement|index), data = subset(dt_tidy, Concept == "Man"|Concept == "Woman"))
+
+## the maximal model with by-subject random slope for the interaction between Concept and Statement Type couldn't be identified because the number of observations were fewer than the possible random effects -- we therefore added separate by-subject random slopes for Concept and Statement Type.
+
+lm_gender = lmer(value~Concept*Statement+(1+Concept+Statement|index), data = subset(dt_tidy, Concept == "Man"|Concept == "Woman"))
+anova(lm_gender)
+summary(lm_gender)
+
+#get specific comparisons [the results include all possible comparisons but we are only interested in a few of them as specified in the paper -- the comparisons are based on coefficients from the same model, so therefore, as Gelman, Hill, Yajima, 2012 argued, we do not have to worry too much about multiple comparison here].
+difflsmeans(lmg, test.effs="Concept:Statement")
+```
+
+The results showed that Man and Woman did not differ in any aspects -- therefore, we will combined Man and Woman into the Gender category in subsequent analyses. 
+
+
+##The model testing the effects of statement type and concept type and their interaction [when "man" and "woman" combined into gender]
+```{r message=FALSE, warning=FALSE}
+#sort specific concepts into their respective kinds
+
+dt_c = within(dt_tidy, {Type = ifelse(Concept %in% c("Artist", "Rock", "Criminal", "Soldier", "Teacher", "Poem", "Love", "Friend", "Scientist", "Mother", "Mentor", "Comedian", "Minister", "Theory", "Boyfriend", "Argument", "Sculpture", "ArtMuseum", "Musician", "Novel", "Teacher"), "DualCharacter", ifelse(Concept %in% c("Optician", "Baker", "Blog", "Doorman", "Caseworker", "TOC", "Tailor", "Bartender", "Rustling", "Welder", "Catalog", "Chair", "Firefighter", "Uncle", "Cashier", "Stroller", "Obituary", "Cousin", "Waitress", "Mayor"), "Control", "Gender"))})
+
+##Test interaction
+## Statement = Good vs. True
+## Type = Dual-Character vs. Control. vs. Gender
+## Random Effects = 1) by-subject random intercept and randon slopes for the interaction between Concept Type and Statement Type. 2) by-concept random intercept and slope for Statement (Concept type is a between-unit factor for specific concepts, and therefore cannot have a by-concept random slope).
+
+## We fitted the maximal random effects structure
+dt_c$Type = as.factor(dt_c$Type)
+dt_c$Statement = as.factor(dt_c$Statement)
+lm1 = lmer(value~Type*Statement+(1+Statement|Concept)+(1+Type*Statement|index), dt_c) #Type is between-unit for Item. Therefore we did not fit any by-item random slope for Type or for the interaction between Type and Statement.
+anova(lm1)
+summary(lm1)
+
+##The model doesn't converge as shown in the summary
+
+##We therefore followed Bates et al. (2015) to reduce the dimensionality of the random effects structure to solve the overfitting problem. 
+
+lm2 = lmer(value~Type*Statement+(1+Statement||Concept)+(1+Type*Statement||index), dt_c)
+summary(lm2)
+summary(rePCA(lm2))
+
+##still failed to converge. and the PCA test showed that the random intercepts explained 0% variance. We therefore conducted the following model:
+
+lm3 = lmer(value~Type*Statement+(0+Statement||Concept)+(0+Type:Statement||index), dt_c)
+summary(lm3)
+summary(rePCA(lm3))
+
+##still failed to converge, and the PCA showed that the by-index (subject) random slopes for the interaction might not be necessary because all the variances were explained by the first three combinations of the interaction between concept and statement types. We therefore removed the interaction term and further simplified the model with separate by-subject random slopes for concept type and statement type :
+
+lm4 = lmer(value~Type*Statement+(0+Statement||Concept)+(0+Type+Statement||index), dt_c)
+summary(lm4)
+summary(rePCA(lm4))
+
+##The model above now successfully converged. We then added the correlation parameters back to see if this would increase model fit:
+
+lm_final = lmer(value~Type*Statement+(0+Statement|Concept)+(0+Type+Statement|index), dt_c)
+
+anova(lm4, lm_final)
+
+##The model comparison showed that lm5 is significantly better than lm4 -- therefore for the final model, we included the correlation parameters
+
+##get the info from the final model
+anova(lm_final)
+summary(lm_final)
+
+difflsmeans(lm_final)
+
+##change reference level to get the remaining comparisons
+lm_final_relevel = lmer(value~relevel(Type, ref = "Gender")*Statement+(0+Statement|Concept)+(0+Type+Statement|index), dt_c)
+summary(lm_final_relevel)
+anova(lm_final_relevel)
+
+```
+
+
+####Bar Graph for Statements and Concepts (error bars represent 95% confidence intervals)
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+full_graph <- dt_c %>%
+  group_by(Type, Statement) %>%
+  summarise(Mean = mean(value,na.rm=T),
+            sd = sd(value),
+            upper = Mean + ci(value),
+            lower = Mean - ci(value))
+full_graph$Type = factor(full_graph$Type,levels = c("DualCharacter", "Control", "Gender"))
+
+ggplot(full_graph,aes(x=Type, y=Mean, fill=Statement, label = round(Mean, digits=2))) +
+  geom_bar(position="dodge", stat="identity", col = "snow4") + scale_fill_manual(values=alpha(c("grey85", "skyblue2"), .8)) +
+  geom_errorbar(   aes( ymax=upper, ymin=lower ) , 
+                     		width   =.25,
+	                    	linetype="solid", col = "gray19", position=position_dodge(.9)
+	                    	) + 
+  theme_bw() + ggtitle("Ratings of Sounding Natural for 'True' vs. 'Good' Statements in Experiment 1") + geom_text(size = 3, position = position_dodge(width=.9), col = "black", vjust=10) + labs(x = "Concept Type", y = "Rating of Sounding Natural") + coord_cartesian(ylim=c(1,7)) + scale_y_continuous(breaks = c(1:7))
+
+#get descriptives (e.g. means and SDs)
+print(full_graph)
+```
+
+####Rank Order Graph for True Statements
+```{r}
+d_true = dt_c %>%
+  filter(Statement=="True") %>%
+  spread(Statement, value)
+
+rank_order <- d_true %>%
+  group_by(Concept, Type) %>%
+  summarise(Mean = mean(True,na.rm=T))
+
+ggplot(rank_order, aes(x=reorder(Concept, Mean), y=Mean, fill = Type, label = round(Mean, digits=2))) + geom_bar(width = .5, stat="identity",position = position_dodge(width = .5)) + ggtitle("Rank Order of True Statement Ratings by Concept") + scale_x_discrete(name = "Concept") + scale_fill_manual(values = c("grey", "black", "beige")) +  scale_y_continuous(name="Mean Ratings for True Statements", breaks = c(1:7), sec.axis = sec_axis(~.*1, name = "Mean Rating for True Statements", breaks = c(1:7)))+ coord_flip(ylim=c(1,7)) + theme (axis.text.x = element_text(vjust=0.7, size=8, angle=0)) + theme (axis.text.y = element_text(vjust=0.7, size=6, angle=0))
+```
+
+#Bayes Factors
+```{r}
+#creating new Type variables to prepare for the BayesFactor analyses.
+##Type is for the original model A where all types are treated independently
+##Type1 is for the model B where Dual-Character and Gender are treated as the same
+##Type2 is for the model C where Control and Gender are treated as the same
+##Type3 is for the model D where Dual-Character and Control are treated as the same
+
+dt_d = dt_c %>%
+  mutate(Type1 = recode(Type, "c('DualCharacter', 'Gender') = 'DG'"), Type2 = recode(Type, "c('Control', 'Gender') = 'CG'"), Type3 = recode(Type, "c('DualCharacter', 'Control') = 'DC'"))
+
+dt_d$value = as.numeric(dt_d$value)
+
+#bfA is the all-different model A where Dual-Character, Control, Man, and Woman are all separate
+bfA = lmBF(value~Type+Statement+Type*Statement, data = as.data.frame(dt_d), whichRandom = c("Concept", "index"))
+bfA
+
+#bfB is the model B where gender = dual character but not control
+
+bfB = lmBF(value~Type1+Statement+Type1*Statement, data = as.data.frame(dt_d), whichRandom = c("Concept", "index"))
+bfB
+
+#bfC is the model C where gender = control but not dual-character
+bfC = lmBF(value~Type2+Statement+Type2*Statement, data = as.data.frame(dt_d), whichRandom = c("Concept", "index"))
+bfC
+
+#bfD is the model D where dual-character = control but not gender
+bfD = lmBF(value~Type3+Statement+Type3*Statement, data = as.data.frame(dt_d), whichRandom = c("Concept", "index"))
+bfD
+
+#organize all the Bayes factors into a single dataframe
+bf_tests1 = c(bfA, bfB, bfC, bfD)
+bf_tests1
+plot(bf_tests1)
+
+#compare model B to the all different model A
+bf_tests1[1]/bf_tests1[2]
+
+
+-----------------------------------------------------
+#Examine only for "true" (or "good" -- change true to good in the following code) statements
+dt_d1 = dt_d %>%
+  filter(Statement == "True")
+
+#bfA1 is the all-different model comparing the concept types only for "true" statement
+bfA1 = lmBF(value~Type, data = as.data.frame(dt_d1), whichRandom = c("Concept", "index"))
+bf6
+
+#bfB1 is the model where gender = dual character but not control, only for "true"" statement
+
+bfB1 = lmBF(value~Type1, data = as.data.frame(dt_d1), whichRandom = c("Concept", "index"))
+bfB1
+
+#bf8 is the model where gender = control but not dual-character, only for "true"" statement
+
+bfC1 = lmBF(value~Type2, data = as.data.frame(dt_d1), whichRandom = c("Concept", "index"))
+bfC1
+
+#bfD1 is the model where dual-character = control but not gender, only for "true"" statement
+
+bfD1 = lmBF(value~Type3, data = as.data.frame(dt_d1), whichRandom = c("Concept", "index"))
+bfD1
+
+bf_tests2=c(bfA1, bfB1, bfC1, bfD1)
+bf_tests2
+bf_tests2[1]/bf_tests2[2]
+```
