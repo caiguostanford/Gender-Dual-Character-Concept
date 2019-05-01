@@ -1,0 +1,192 @@
+---
+title: "Study 5"
+output: html_notebook
+---
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(lmerTest)
+library(car)
+library(lme4)
+library(knitr)
+library(BayesFactor)
+library(gridExtra)
+library(cowplot)
+```
+
+#clean up data and calculating demographics and basic descriptive data
+```{r}
+#load data
+dr = read.csv("~/Desktop/Stanford/Dual Character Concepts/Dual Character Concept Data/Study 5.csv")
+
+#filter out those who provided nonsensical responses
+dr_tidy = dr %>%
+  mutate(subject = row.names(dr)) %>%
+  filter(Nonsense !=1 | is.na(Nonsense)) 
+
+#get the number of participants that remain
+num_1 = length(dr_tidy$subject)
+
+#get participant mean age
+mean_age = mean(dr_tidy$Age)
+mean_age
+summary(dr_tidy$Age)
+#get participant gender information (1 == female, 2 == male)
+dr_tidy$Gender = as.factor(dr_tidy$Gender)
+sum_gender = summary(dr_tidy$Gender)
+sum_gender
+prop.table(sum_gender)
+
+#get the number of "man" responses that remain
+num_man1 = dr_tidy %>%
+  filter(Man >=1) 
+num_mantot = length(num_man1$subject)
+num_mantot
+
+#get the numner of "woman" responses that remain
+
+num_woman1 = dr_tidy %>%
+  filter(Woman >=1) 
+num_womantot = length(num_woman1$subject)
+num_womantot
+
+#calculate the mean scores for "man" and "woman" and where they fall against the mid-point of the scale
+t.test(dr$Man, mu=4)
+t.test(dr$Woman, mu=4)
+
+#filter out those who did not significantly endorse the naturalness of the statements
+dr_sig = dr_tidy %>%
+  filter(Man >=4 | is.na(Man)) %>%
+   filter(Woman >=4 | is.na(Woman))
+
+#get the number of participants who gave a 4 or above for the statements
+num_2 = length(dr_sig$subject)
+
+#calculate the proportion of participants who gave a >=4
+prop.above4 = num_2/num_1
+prop.above4
+
+#calculate the number of "man" responses that remain
+dr_man =  dr_tidy %>%
+  filter(Man >=4)
+num_man = length(dr_man$subject)
+num_man
+
+#calculate the proportion of "man" responses that are 4 or above
+prop.man4 = num_man/num_mantot
+prop.man4
+
+#calculate the number of "woman" responses that remain
+dr_woman =  dr_tidy %>%
+  filter(Woman >=4)
+num_woman = length(dr_woman$subject)
+num_woman
+
+#calculate the proportion of "woman" responses that are 4 or above
+prop.woman4 = num_woman/num_womantot
+prop.woman4
+```
+
+After we filtered out those who did not give comprehensible answers, we have a total of 385 participants (48% female, mean age: 35.58). Of those 385 participants, 195 answered the questions about "man" and 190 about "woman".
+
+Among the 195 participants who responded to "man", 170 (87%) rated the naturalness of the "true man" statement with a 4 or above on a 7-point scale. Among the 190 participants who responded to "woman", 151 (79%) rated the naturalness of the "true woman" statement with a 4 or above on a 7-point scale. 
+
+#For "man"
+```{r}
+#number of participants who had "moral" for "man"
+dr_manmoral = dr_sig %>%
+  filter(Man >= 1 & Moral == 1)
+num_mmoral = length(dr_manmoral$subject)
+prop.manmoral = num_mmoral/num_man
+prop.manmoral
+
+#number of participants who had stereotypical values for "man"
+dr_manstereo = dr_sig %>%
+  filter(Man >= 1 & Stereotypical == 1)
+num_mstereo = length(dr_manstereo$subject)
+prop.mstereo = num_mstereo/num_man
+prop.mstereo
+
+#number of participants who had vague values for "man"
+dr_manvague = dr_sig %>%
+  filter(Man >= 1 & Vague.Value == 1)
+num_mvague = length(dr_manvague$subject)
+prop.mvague = num_mvague/num_man
+prop.mvague
+
+#number of participants who had identity for "man"
+dr_manid = dr_sig %>%
+  filter(Man >= 1 & Identity == 1)
+num_mid = length(dr_manid$subject)
+prop.mid = num_mid/num_man
+prop.mid
+
+#number of participants who had other for "man"
+dr_manot = dr_sig %>%
+  filter(Man >= 1 & Other == 1)
+num_mot = length(dr_manot$subject)
+prop.mot = num_mot/num_man
+prop.mot
+```
+
+#For "woman"
+```{r}
+#number of participants who had "moral" for "woman"
+dr_wmanmoral = dr_sig %>%
+  filter(Woman >= 1 & Moral == 1)
+num_wmmoral = length(dr_wmanmoral$subject)
+prop.wmanmoral = num_wmmoral/num_woman
+prop.wmanmoral
+
+#number of participants who had stereotypical values for "woman"
+dr_wmanstereo = dr_sig %>%
+  filter(Woman >= 1 & Stereotypical == 1)
+num_wmstereo = length(dr_wmanstereo$subject)
+prop.wmstereo = num_wmstereo/num_woman
+prop.wmstereo
+
+#number of participants who had vague values for "woman"
+dr_wmanvague = dr_sig %>%
+  filter(Woman >= 1 & Vague.Value == 1)
+num_wmvague = length(dr_wmanvague$subject)
+prop.wmvague = num_wmvague/num_woman
+prop.wmvague
+
+#number of participants who had identity for "woman"
+dr_wmanid = dr_sig %>%
+  filter(Woman >= 1 & Identity == 1)
+num_wmid = length(dr_wmanid$subject)
+prop.wmid = num_wmid/num_woman
+prop.wmid
+
+#number of participants who had other for "woman"
+dr_wmanot = dr_sig %>%
+  filter(Woman >= 1 & Other == 1)
+num_wmot = length(dr_wmanot$subject)
+prop.wmot = num_wmot/num_woman
+prop.wmot
+```
+
+#making plots for the proportions comparing "man" and "woman"
+```{r}
+woman_p = c(prop.wmanmoral, prop.wmstereo, prop.wmvague, prop.wmid, prop.wmot)
+man_p = c(prop.manmoral, prop.mstereo, prop.mvague, prop.mid, prop.mot)
+graph_w = data.frame(woman_p, man_p)
+graph_w_tidy = graph_w %>%
+  mutate(item=c("Moral", "Stereotypical", "Vague", "Identity", "Other")) %>%
+  gather(variable, value, woman_p, man_p) %>%
+  group_by(item) %>%
+  separate(variable, into = "Target")
+
+ggplot(graph_w_tidy, aes(x=item, y=value, fill=Target,  label = round(value, digits=2))) + geom_bar(position="dodge", stat="identity", color="gray40") + scale_fill_manual(values=c("skyblue2", "pink"), labels = c("Man", "Woman")) + scale_x_discrete(limits = c("Moral", "Stereotypical", "Vague", "Identity", "Other")) +
+  theme_bw() + ggtitle("Proportion of Response Type") + geom_text(size = 3, position = position_dodge(width=.9), vjust=5) 
+```
+
+#Compare the proportions of responses falling in each coding category for "man" and "woman" using chisq.test
+```{r}
+x = c(num_mmoral, num_mstereo, num_mvague, num_mid, num_mot) # "man"
+y = c(num_wmmoral, num_wmstereo, num_wmvague, num_wmid, num_wmot) #"woman"
+chisq.test(data.frame(x,y))
+```
