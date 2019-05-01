@@ -1,0 +1,372 @@
+---
+title: "Study 4 Master File"
+output: html_document
+---
+
+#Study 4a
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(lmerTest)
+library(car)
+library(lme4)
+library(BayesFactor)
+library(gridExtra)
+library(cowplot)
+library(RePsychLing)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+dq = read.csv("~/Desktop/Stanford/Dual Character Concepts/Dual Character Concept Data/Study 4a.csv")
+
+#Remove participants who did not answer the attention check question correctly.
+dq = dq %>%
+  filter(Filter==1)
+
+#Turn dataset into long form. 
+dq_tidy = dq %>%
+  mutate(index=rownames(dq)) %>%
+  gather(variable, value, Artist.N:Woman.C) %>%
+  group_by(index) %>%
+  separate(variable, into=c("Concept", "Statement"))
+
+#Label variables
+dq_tidy$Statement = as.factor(dq_tidy$Statement)
+levels(dq_tidy$Statement)[levels(dq_tidy$Statement)=="C"] <- "Member"
+levels(dq_tidy$Statement)[levels(dq_tidy$Statement)=="N"] <- "Nonmember"
+
+dq_tidy$value = as.numeric(dq_tidy$value)
+
+dq_c = within(dq_tidy, {Type = ifelse(Concept %in% c("Artist", "Criminal", "Love", "Friend", "Mentor", "Comedian", "Minister", "Theory", "Boyfriend", "Argument"), "DualCharacter", ifelse(Concept %in% c("Rustling", "Welder", "Catalog", "Chair", "Firefighter", "Uncle", "Cashier", "Stroller", "Obituary", "Cousin"), "Control", ifelse(Concept %in% c("Man", "Woman"), "Gender", "NaturalKind")))})
+```
+
+##Demographics
+```{r message=FALSE, warning=FALSE}
+#1 = Female, 2 = Male, 3 = Other
+prop.table(table(dq$Gender))
+#Age
+summary(dq$Age)
+#Turns out one participant did not provide their age but instead put irrelevant words -- we did the following procedure to eliminate this to calculate average age and the age range:
+dq$Age = as.numeric(as.character(dq$Age))
+summary(dq$Age)
+```
+
+##Compare Man and Woman to decide whether to combine or separate them in subsequent analyses.
+```{r message=FALSE, warning=FALSE}
+#since there's only 1 concept within Man and Woman respectively, we do not include Concept but only subject (index) as a random effect. 
+
+dq_gender = dq_c %>%
+  filter(Type == "Gender")
+lmer_gender = lmer(value~Statement*Concept+(1|index), dq_gender)
+anova(lmer_gender)
+summary(lmer_gender)
+
+difflsmeans(lmer_gender)
+```
+
+##Graph for "man" vs. "woman"
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+sem <- function(x) {sd(x, na.rm=TRUE) / sqrt(length(x))}
+
+ci <- function(x) {qt(.975, df=length(x)-1)*sem(x)}
+
+gender_graph <- dq_gender %>%
+  group_by(Concept, Statement) %>%
+  summarise(Mean = mean(value,na.rm=T),
+            se = ci(value),
+            upper = Mean + se,
+            lower = Mean - se)
+
+ggplot(gender_graph,aes(x=Concept, y=Mean, fill=Statement, label = round(Mean, digits=2))) +
+  geom_bar(position="dodge", stat="identity", col = "black") + scale_fill_manual(values=c("grey", "white")) +
+  geom_errorbar(   aes( ymax=upper, ymin=lower ) , 
+                     		width   =.25,
+	                    	linetype="solid", position=position_dodge(.9)
+	                    	) + 
+  theme_bw() + ggtitle("Ratings of Statements by Concept and Statement Type") + geom_text(size = 3, position = position_dodge(width=.9), vjust=7)
+```
+
+##The model testing the effects of statement type and concept type and their interaction 
+```{r message=FALSE, warning=FALSE}
+dq_all = within(dq_tidy, {Type = ifelse(Concept %in% c("Artist", "Criminal", "Love", "Friend", "Mentor", "Comedian", "Minister", "Theory", "Boyfriend", "Argument"), "DualCharacter", ifelse(Concept %in% c("Rustling", "Welder", "Catalog", "Chair", "Firefighter", "Uncle", "Cashier", "Stroller", "Obituary", "Cousin"), "Control", ifelse(Concept=="Man", "Man",  ifelse(Concept=="Woman", "Woman", "NaturalKind"))))})
+
+#To simplify the comparisons and keep the comparisons consistent across all experiments, we chose not to include natural kind in the paper because they are not of our interest and our gender vignettes did not pit DNA against appearance (like the natural kinds vignettes in Knobe et al.) but rather concerned individuals with an unambiguous gender identity [cisgender individuals who are not transgender] but transgressed abstract socio-cultural gender norms (see the full paper for details). 
+
+dq_full = dq_all %>%
+  filter(Type == "Man" | Type == "Woman" | Type == "Control" | Type == "DualCharacter") %>%
+  mutate(Type = as.factor(Type))
+#Interaction
+#Unlike in the examination of the differences between Man and Woman, where there's only one item in each kind, here we treat Concept (specific items) as a random effect because in each of Control, Dual-Character, and Natural Kind, there are 10 items and every participant would rate all the items. 
+
+#We fitted a maximal random effect model -- Statement is between subject -- therefore only by-subject random slope for Type.
+lmer_full = lmer(value~Type*Statement+(1+Statement|Concept)+(1+Type|index), dq_full)
+anova(lmer_full)
+summary(lmer_full)
+
+difflsmeans(lmer_full)
+
+#change reference level
+lmer_relevel = lmer(value~relevel(Type, ref="DualCharacter")*Statement+(1+Statement|Concept)+(1+Type|index), dq_full)
+summary(lmer_relevel)
+```
+
+##Graph
+```{r}
+sem <- function(x) {sd(x, na.rm=TRUE) / sqrt(length(x))}
+
+ci <- function(x) {qt(.975, df=length(x)-1)*sem(x)}
+
+library(plyr)
+dq_full$Statement = mapvalues(dq_full$Statement, from = c("Member", "Nonmember"), to = c("is a member", "is not a member"))
+detach(package:plyr)
+
+full_graph <- dq_full %>%
+  group_by(Type, Statement) %>%
+  summarise(Mean = mean(value,na.rm=T),
+            se = ci(value),
+            upper = Mean + se,
+            lower = Mean - se)
+
+full_graph <- dq_full %>%
+  group_by(Type, Statement) %>%
+  summarise(Mean = mean(value,na.rm=T),
+            sd = sd(value),
+            upper = Mean + ci(value),
+            lower = Mean - ci(value))
+
+ggplot(full_graph,aes(x=Type, y=Mean, fill=Statement, label = round(Mean, digits=2))) +
+  geom_bar(position="dodge", stat="identity", col="snow4") + scale_fill_manual(values=alpha(c("gray85", "skyblue2"), .8)) +
+  geom_errorbar(   aes( ymax=upper, ymin=lower ) , 
+                     		width   =.25,
+	                    	linetype="solid", col = "gray19", position=position_dodge(.9)
+	                    	) + 
+  theme_bw() + ggtitle(label = "Ratings of Sounding Natural for", subtitle = "'is a member' vs. 'is not a member' in Exp. 4") + geom_text(size = 3, position = position_dodge(width=.9), col = "black", vjust=5) + scale_x_discrete(limits = c("DualCharacter", "Control", "Man", "Woman")) + scale_y_discrete(limits=seq(1,7, by=1))+labs(x = "Concept Type", y = "Participants' Endorsement of Statement") + coord_cartesian(ylim=c(1,7)) +theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5, size = 12))
+```
+
+##Bayes Factor Analyses
+```{r}
+#creating new Type variables to prepare for the BayesFactor analyses.
+##Type is for the full model A where all the factors are different as they are in the lmer regression models
+##Type1 is for the model B where Dual-Character and Man are treated as the same
+##Type2 is for the model C where Control and Man are treated as the same
+##Type3 is for the model D where Dual-Character and Woman are treated as the same
+##Type4 is for the model E where Control and Woman are treated as the same
+
+dq_bayes = dq_full %>%
+  mutate(Type1 = recode(Type, "c('DualCharacter', 'Man') = 'DM'"), Type2 = recode(Type, "c('Control', 'Man') = 'CM'"), Type3 = recode(Type, "c('DualCharacter', 'Woman') = 'DW'"), Type4 = recode(Type, "c('Control', 'Woman') = 'CW'"))
+
+dq_bayes$value = as.numeric(dq_bayes$value)
+
+#bqA is the all-different model A where Dual-Character, Control, Man, and Woman are all separate
+bqA = lmBF(value~Type+Statement+Type*Statement, data = as.data.frame(dq_bayes), whichRandom = c("Concept", "index"))
+bqA
+
+#bqB is the model B where man = dual character but not others
+
+bqB = lmBF(value~Type1+Statement+Type1*Statement, data = as.data.frame(dq_bayes), whichRandom = c("Concept", "index"))
+bqB
+
+#compare model B and the all-different model A
+bq_testsAB = c(bqA, bqB)
+bq_testsAB
+
+#since bqA's Bayes factor is bigger than that of bqB, we put bqA's factor as the numerator and bqB's factor as the denominator to see how much bigger bqA factor is than bqB factor.
+
+bq_testsAB[1]/bq_testsAB[2]
+
+#bqC is the model C where man = control but not others
+bqC = lmBF(value~Type2+Statement+Type2*Statement, data = as.data.frame(dq_bayes), whichRandom = c("Concept", "index"))
+bqC
+
+#compare model C and the all-different model A
+bq_testsAC = c(bqA, bqC)
+bq_testsAC
+
+#since bqA's Bayes factor is bigger than that of bqC, we put bqA's factor as the numerator and bqC's factor as the denominator to see how much bigger bqA factor is than bqC's factor.
+
+bq_testsAC[1]/bq_testsAC[2] 
+
+#now we directly compare Model B and C
+bq_testsBC = c(bqB, bqC)
+bq_testsBC
+
+#since C's Bayes factor is bigger than that of B, we put C's factor as the numerator and B's factor as the denominator to see how much bigger C's factor is than B's factor.
+bq_testsBC[2]/bq_testsBC[1]
+
+#bm5 is the model D where woman = dual but not others
+bqD = lmBF(value~Type3+Statement+Type3*Statement, data = as.data.frame(dq_bayes), whichRandom = c("Concept", "index"))
+bqD
+
+#compare model D and all-different model A
+bq_testsAD = c(bqA, bqD)
+bq_testsAD
+bq_testsAD[1]/bq_testsAD[2]
+
+#bqE is the model E where woman = control but not others
+bqE = lmBF(value~Type4+Statement+Type4*Statement, data = as.data.frame(dq_bayes), whichRandom = c("Concept", "index"))
+bqE
+
+#compare model E and the all-different model A
+bq_testsAE = c(bqA, bqE)
+bq_testsAE
+bq_testsAE[1]/bq_testsAE[2]
+
+#compare models D and E
+bq_testsDE = c(bqD, bqE)
+bq_testsDE
+bq_testsDE[2]/bq_testsDE[1]
+```
+
+#Study 4b [society version]
+```{r message=FALSE, warning=FALSE, include=FALSE}
+#This is the "society" version [not reported in the full paper]
+
+dk = read.csv("~/Desktop/Stanford/Dual Character Concepts/Dual Character Concept Data/Study 4b.csv")
+
+#Remove participants who did not answer the attention check question correctly.
+dk = dk %>%
+  filter(Filter==1)
+
+#Turn dataset into long form. 
+dk_tidy = dk %>%
+  mutate(index=rownames(dk)) %>%
+  gather(variable, value, Artist.N:Woman.C) %>%
+  group_by(index) %>%
+  separate(variable, into=c("Concept", "Statement"))
+
+#Label variables
+dk_tidy$Statement = as.factor(dk_tidy$Statement)
+levels(dk_tidy$Statement)[levels(dk_tidy$Statement)=="C"] <- "Member"
+levels(dk_tidy$Statement)[levels(dk_tidy$Statement)=="N"] <- "Nonmember"
+
+dk_tidy$value = as.numeric(dk_tidy$value)
+
+dk_c = within(dk_tidy, {Type = ifelse(Concept %in% c("Artist", "Criminal", "Love", "Friend", "Mentor", "Comedian", "Minister", "Theory", "Boyfriend", "Argument"), "DualCharacter", ifelse(Concept %in% c("Rustling", "Welder", "Catalog", "Chair", "Firefighter", "Uncle", "Cashier", "Stroller", "Obituary", "Cousin"), "Control", ifelse(Concept %in% c("Man", "Woman"), "Gender", "NaturalKind")))})
+```
+
+##Demographics
+```{r message=FALSE, warning=FALSE}
+#1 = Female, 2 = Male, 3 = Other
+prop.table(table(dk$Gender))
+#Age
+summary(dk$Age)
+```
+
+##The model testing the effects of statement type and concept type and their interaction 
+```{r message=FALSE, warning=FALSE}
+dk_all = within(dk_tidy, {Type = ifelse(Concept %in% c("Artist", "Criminal", "Love", "Friend", "Mentor", "Comedian", "Minister", "Theory", "Boyfriend", "Argument"), "DualCharacter", ifelse(Concept %in% c("Rustling", "Welder", "Catalog", "Chair", "Firefighter", "Uncle", "Cashier", "Stroller", "Obituary", "Cousin"), "Control", ifelse(Concept=="Man", "Man",  ifelse(Concept=="Woman", "Woman", "NaturalKind"))))})
+
+#as before we compare only dual-character, control, man, and woman
+dk_full = dk_all %>%
+  filter(Type == "Man" | Type == "Woman" | Type == "Control" | Type == "DualCharacter") %>%
+  mutate(Type = as.factor(Type))
+
+#Interaction
+#Since Statement Type is a between-subject factor in this experiment, we did not fit by-subject random slopes for statement type. 
+lmer_full_k = lmer(value~Type*Statement+(1+Statement|Concept)+(1+Type|index), dk_full)
+anova(lmer_full_k)
+summary(lmer_full_k)
+
+difflsmeans(lmer_full_k)
+
+#Change reference level to get the remaining comnparisons
+lmer_relevel_k = lmer(value~relevel(Type, ref="DualCharacter")*Statement+(1+Statement|Concept)+(1+Type|index), dk_full)
+```
+
+##Bayes Factor Analysis
+```{r}
+#creating new Type variables to prepare for the BayesFactor analyses.
+##Type is for the full model A where all the factors are different as they are in the lmer regression models
+##Type1 is for the model B where Dual-Character and Man are treated as the same
+##Type2 is for the model C where Control and Man are treated as the same
+##Type3 is for the model D where Dual-Character and Woman are treated as the same
+##Type4 is for the model E where Control and Woman are treated as the same
+
+dk_bayes = dk_full %>%
+  mutate(Type1 = recode(Type, "c('DualCharacter', 'Man') = 'DM'"), Type2 = recode(Type, "c('Control', 'Man') = 'CM'"), Type3 = recode(Type, "c('DualCharacter', 'Woman') = 'DW'"), Type4 = recode(Type, "c('Control', 'Woman') = 'CW'"))
+
+dk_bayes$value = as.numeric(dk_bayes$value)
+
+#bkA is the all-different model A where Dual-Character, Control, Man, and Woman are all separate
+bkA = lmBF(value~Type+Statement+Type*Statement, data = as.data.frame(dk_bayes), whichRandom = c("Concept", "index"))
+bkA
+
+#bkB is the model B where man = dual character but not others
+
+bkB = lmBF(value~Type1+Statement+Type1*Statement, data = as.data.frame(dk_bayes), whichRandom = c("Concept", "index"))
+bkB
+
+#compare model B and the all-different modelA
+bk_testsAB = c(bkA, bkB)
+bq_testsAB
+
+#since bm1's Bayes factor is bigger than that of bm2, we put bm1's factor as the numerator and bm2's factor as the denominator to see how much bigger bm1 factor is than bm2 factor.
+bk_testsAB[1]/bk_testsAB[2]
+
+#bkC is the model B where man = control but not others
+bkC = lmBF(value~Type2+Statement+Type2*Statement, data = as.data.frame(dk_bayes), whichRandom = c("Concept", "index"))
+bkC
+
+#compare model C and the all-different model A
+bk_testsAC = c(bkA, bkC)
+bk_testsAC
+
+#since bkA's Bayes factor is bigger than that of bkC, we put bkA's factor as the numerator and bkC's factor as the denominator to see how much bigger bkA factor is than bkC's factor.
+bk_testsAC[1]/bk_testsAC[2] 
+
+#now we directly compare Model C and C
+bk_testsBC = c(bkB, bkC)
+bk_testsBC
+
+#since bkC's Bayes factor is bigger than that of bkB, we put bkC's factor as the numerator and bkB's factor as the denominator to see how much bigger bkC's factor is than bkB's factor.
+bk_testsBC[2]/bk_testsBC[1]
+
+
+#bm5 is the model D where woman = dual but not others
+bkD = lmBF(value~Type4+Statement+Type4*Statement, data = as.data.frame(dk_bayes), whichRandom = c("Concept", "index"))
+bkD
+
+#compare model D and all-different model A
+bk_testsAD = c(bkA, bkD)
+bk_testsAD
+bk_testsAD[1]/bq_testsAD[2]
+
+#bm6 is the model E where woman = control but not others
+bkE = lmBF(value~Type5+Statement+Type5*Statement, data = as.data.frame(dk_bayes), whichRandom = c("Concept", "index"))
+bkE
+
+#compare model E and the all-different model
+bk_testsAE = c(bkA, bkE)
+bk_testsAE
+bk_testsAE[1]/bk_testsAE[2]
+
+#compare models D and E
+bk_testsDE = c(bkD, bkE)
+bk_testsDE
+bk_testsDE[2]/bk_testsDE[1]
+```
+
+##Graph
+```{r}
+sem <- function(x) {sd(x, na.rm=TRUE) / sqrt(length(x))}
+
+ci <- function(x) {qt(.975, df=length(x)-1)*sem(x)}
+
+full_graph_k <- dk_full %>%
+  group_by(Type, Statement) %>%
+  summarise(Mean = mean(value,na.rm=T),
+            se = ci(value),
+            upper = Mean + se,
+            lower = Mean - se)
+
+ggplot(full_graph_k,aes(x=Type, y=Mean, fill=Statement, label = round(Mean, digits=2))) +
+  geom_bar(position="dodge", stat="identity", col="black") + scale_fill_manual(values=c("grey", "white")) +
+  geom_errorbar(   aes( ymax=upper, ymin=lower ) , 
+                     		width   =.25,
+	                    	linetype="solid", position=position_dodge(.9)
+	                    	) + 
+  theme_bw() + ggtitle("Ratings of Statements by Concept and Statement Type") + geom_text(size = 3, position = position_dodge(width=.9), vjust=7) + scale_x_discrete(limits = c("DualCharacter", "Control", "NaturalKind", "Man", "Woman")) + scale_y_discrete(limits=seq(0,7, by=1))+labs(x = "Concept Type")
+```
+
+
