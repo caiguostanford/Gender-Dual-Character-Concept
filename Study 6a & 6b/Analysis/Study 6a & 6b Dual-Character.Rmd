@@ -1,8 +1,14 @@
 ---
-title: "Study 6a & 6b"
-output: html_document
+title: "Experiment 6a & 6b"
+author: "Cai Guo, Carol S. Dweck, & Ellen M. Markman"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
 ---
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -13,10 +19,12 @@ library(BayesFactor)
 library(gridExtra)
 library(cowplot)
 library(optimx)
+library(bootstrap)
 ```
 
-#Load data
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
+# Load data
+
 #Study 6a for "man"
 dm = read.csv("~/Desktop/Stanford/Dual Character Concepts/Dual Character Concept Data/Study 6a Man.csv")
 
@@ -30,8 +38,10 @@ dms = read.csv("~/Desktop/Stanford/Dual Character Concepts/Dual Character Concep
 dws = read.csv("~/Desktop/Stanford/Dual Character Concepts/Dual Character Concept Data/Study 6b Woman.csv")
 ```
 
+
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
 #set function for getting 95% bootstrapped confidence intervals
-```{r}
+
 theta <- function(x,xdata,na.rm=T) {mean(xdata[x],na.rm=na.rm)}
 ci.low <- function(x,na.rm=T) {
   mean(x,na.rm=na.rm) - quantile(bootstrap(1:length(x),1000,theta,x,na.rm=na.rm)$thetastar,.025,na.rm=na.rm)}
@@ -39,7 +49,7 @@ ci.high <- function(x,na.rm=T) {
   quantile(bootstrap(1:length(x),1000,theta,x,na.rm=na.rm)$thetastar,.975,na.rm=na.rm) - mean(x,na.rm=na.rm)}
 ```
 
-#Demographics of 6a
+# Demographics of 6a
 ```{r}
 dw_1 = dw %>% # selecting Gender and Age variables for the "woman" dataset in 6a
   dplyr::select(Gender, Age)
@@ -52,7 +62,7 @@ d_demo_6a = rbind(dw_1, dm_1) #combining the two versions
 summary(d_demo_6a$Age) #participant age info
 summary(as.factor(d_demo_6a$Gender)) #participant ender info
 ```
-#Demographics of 6b
+# Demographics of 6b
 ```{r}
 #Demographics
 dws_1 = dws %>% # selecting Gender and Age variables for the "woman" dataset in 6b
@@ -66,8 +76,8 @@ summary(d_demo_6b$Age) # participant age info
 summary(as.factor(d_demo_6b$Gender)) # participant gender info
 ```
 
-#Experiment 6a specificity of statements for "man"
-```{r}
+# Experiment 6a Specificity of Statements for "man"
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
 #turn data into long form
 d6am = dm %>%
   mutate(index=104:204) %>% #numbering participants starting from 104 for later combining with the "woman" dataset
@@ -78,26 +88,31 @@ d6am = dm %>%
 d6am = within(d6am, {Type = ifelse(Concept %in% c("Cowardly", "Emotional", "Abusive", "Dishonest", "Sensitive", "Irresponsible", "Submissive", "Narcissistic", "Bragging", "Dishonorable", "Disrespectful", "Gossipy", "Weak"), "General", ifelse(Concept %in% c("Easygoing", "Traveling", "Swimming", "Smiling", "Music", "Reading", "Movie", "Environment", "Curious", "Kind"), "Neutral", "Concrete"))})
 
 d6am$Type = as.factor(d6am$Type)
+```
 
+## Fitting maximal LMER models 
+```{r message=FALSE, warning=FALSE}
 #compare the 3 kinds of statements
-lm_6am = lmer(value~relevel(Type, ref = "General")+(0+Type||index)+(1|Concept), d6am) #the maximal model didn't converge -- we therefore modified the model following the advice by Bates et al. (2015).
+lm_6am = lmer(value~relevel(Type, ref = "General")+(0+Type||index)+(1|Concept), d6am) 
 summary(lm_6am)
 anova(lm_6am)
 
 #change reference level
-lm_6am_relevel = lmer(value~relevel(Type, ref = "Concrete")+(0+Type||index)+(1|Concept), d6am) #the maximal model didn't converge -- we therefore modified the model following the advice by Bates et al. (2015).
+lm_6am_relevel = lmer(value~relevel(Type, ref = "Concrete")+(0+Type||index)+(1|Concept), d6am) 
 summary(lm_6am_relevel)
 anova(lm_6am_relevel)
 
 rank_graph_6am = d6am %>%
+   mutate(Concept = gsub("\\.", " ", Concept)) %>%
   group_by(Concept, Type) %>%
   summarise(Mean = mean(value, na.rm=T))
 
 ggplot(rank_graph_6am, aes(x=reorder(Concept, Mean), y=Mean, fill = Type, label = round(Mean, digits=2))) + geom_bar(width = .5, stat="identity",position = position_dodge(width = .5)) + ggtitle("Rank Order of Degree of Violation of Man by Concept") + scale_x_discrete(name = "Concept") + scale_fill_manual(values = c("grey85", "skyblue2", "beige")) +  scale_y_continuous(name="Mean Ratings for Violation", breaks = c(1:7), sec.axis = sec_axis(~.*1, name = "Mean Rating for Violation", breaks = c(1:7)))+ coord_flip(ylim=c(1,7)) + theme (axis.text.x = element_text(vjust=0.7, size=8, angle=0)) + theme (axis.text.y = element_text(vjust=0.7, size=6, angle=0))
 ```
 
-#Experiment 6a comparing stereotypic vs. moral items for "man"
-```{r}
+# Experiment 6a Comparing Stereotypic vs. Moral Items for "Man"
+
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
 #selecting moral and stereotypic items
 dmn = d6am %>%
   filter(Concept %in% c("Cowardly", "Emotional", "Submissive", "Gossipy", "Crying", "Caring.about.Appearance", "Not.Sticking.Up.for.Himself", "Dishonorable", "Abuse.Children", "Abuse.Spouse", "Cheating.on.Spouse", "Not.Taking.Action.When.Significant.Others.Threatened", "Not.Taking.Responsibilities", "Gambling.Away.Savings", "Not.Standing.Up.for.What.He.Believes.In", "Disrespectful"))
@@ -107,7 +122,11 @@ dmn = within(dmn, {Type = ifelse(Concept %in% c("Cowardly", "Emotional", "Submis
 
 #check the items
 unique(dmn$Concept)
+```
 
+## Fitting maximal LMER models
+
+```{r message=FALSE, warning=FALSE}
 ##compare stereotypic vs. moral in ideal image violation:
 ln1 = lmer(value~Type+(1+Type|index)+(1|Concept), dmn)
 summary(ln1)
@@ -115,6 +134,7 @@ anova(ln1)
 
 #rank order bar graph for moral and stereotypic items in how serious violations participants perceived them to be of their ideal images of "man""
 aggmn = dmn %>%
+   mutate(Concept = gsub("\\.", " ", Concept)) %>%
   group_by(Concept, Type) %>%
   summarise(Mean = mean(value, na.rm=T),
             upper = Mean+ci.high(value),
@@ -124,14 +144,19 @@ ggplot(aggmn, aes(x=reorder(Concept, Mean), y=Mean, fill = Type, label = round(M
                      		width   =.25,
 	                    	linetype="solid", position=position_dodge(.9)
 	                    	)
+```
 
+## Experiment 6a T-Tests Comparing Moral vs. Stereotypical against the Mid-Point for "Man"
+
+```{r message=FALSE, warning=FALSE}
 #test whether the aggregate scores were signiticantly different from the mid-point (4) on the scale.
 t.test(subset(dmn, Type == "Moral")$value, mu=4)
 t.test(subset(dmn, Type == "Stereotypical")$value, mu=4)
 ```
 
-#Experiment 6a specificity of statements for "woman"
-```{r}
+# Experiment 6a Specificity of Statements for "Woman"
+
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
 #turn data into long form
 d6aw = dw %>%
   mutate(index=1:103) %>%
@@ -143,7 +168,11 @@ d6aw = within(d6aw, {Type = ifelse(Concept %in% c("Dominant", "Emotionally Cold"
 
 #factorize the variable
 d6aw$Type = as.factor(d6aw$Type)
+```
 
+## Fitting maximal LMER models
+
+```{r message=FALSE, warning=FALSE}
 #compare the 3 kinds of statements
 lm_6aw = lmer(value~Type+(0+Type||index)+(1|Concept), d6aw)
 summary(lm_6aw)
@@ -156,6 +185,7 @@ anova(lm_6aw_relevel)
 
 #get stats for creating the graph
 rank_order_6aw = d6aw %>%
+   mutate(Concept = gsub("\\.", " ", Concept)) %>%
   group_by(Concept, Type) %>%
   summarise(Mean = mean(value, na.rm=T))
 
@@ -163,14 +193,20 @@ rank_order_6aw = d6aw %>%
 ggplot(rank_order_6aw, aes(x=reorder(Concept, Mean), y=Mean, fill = Type, label = round(Mean, digits=2))) + geom_bar(width = .5, stat="identity",position = position_dodge(width = .5)) + ggtitle("Rank Order of Degree of Violation of Woman by Concept") + scale_x_discrete(name = "Concept") + scale_fill_manual(values = c("grey85", "skyblue2", "beige")) +  scale_y_continuous(name="Mean Ratings for Violation", breaks = c(1:7), sec.axis = sec_axis(~.*1, name = "Mean Rating for Violation", breaks = c(1:7)))+ coord_flip(ylim=c(1,7)) + theme (axis.text.x = element_text(vjust=0.7, size=8, angle=0)) + theme (axis.text.y = element_text(vjust=0.7, size=6, angle=0))
 ```
 
-#Experiment 6a comparing stereotypic vs. moral items for "woman"
-```{r}
+# Experiment 6a Comparing Stereotypic vs. Moral Items for "Woman"
+
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
 #select moral and stereotypical items
 dwn = d6aw %>%
   filter(Concept %in% c("Dominant", "Wanting.To.Be.Boss", "Rude", "Vulgar", "Not.Wanting.Children", "Emotionally.Cold", "Not.Cleaning.House", "Not.Caring.about.Appearance", "Promiscuous", "Abuse.Spouse", "Abuse.Children", "Cheating.on.Spouse", "Initiating.Fights", "Disrespectful", "Not.Taking.Action.When.Significant.Others.Threatened", "Spendthrift.on.Cosmetics.and.Clothing"))
 
 #sort items into either "stereotypical" or "moral"
 dwn = within(dwn, {Type = ifelse(Concept %in% c("Dominant", "Wanting.To.Be.Boss", "Rude", "Vulgar", "Not.Wanting.Children", "Emotionally.Cold", "Not.Cleaning.House", "Not.Caring.about.Appearance"), "Stereotypical", "Moral")})
+```
+
+## Fitting maximal LMER models
+
+```{r message=FALSE, warning=FALSE}
 
 #compare moral vs. stereotypical for "woman"
 ln2 = lmer(value~Type+(1+Type|index)+(1|Concept), dwn)
@@ -178,6 +214,7 @@ summary(ln2)
 
 #get stats for the graph
 aggwn = dwn %>%
+   mutate(Concept = gsub("\\.", " ", Concept)) %>%
   group_by(Concept, Type) %>%
   summarise(Mean = mean(value, na.rm=T),
             upper = Mean + ci.high(value),
@@ -188,50 +225,72 @@ ggplot(aggwn, aes(x=reorder(Concept, Mean), y=Mean, fill = Type, label = round(M
                      		width   =.25,
 	                    	linetype="solid", position=position_dodge(.9)
 	                    	)
+```
 
+
+## Experiment 6a T-Tests Comparing Moral vs. Stereotypical against the Mid-Point for "Woman"
+
+```{r message=FALSE, warning=FALSE}
 #t-test comparing whether the aggregate ratings for moral vs. stereotypical items were significantly different from the mid-point (4) of the scale.
 
 t.test(subset(dwn, Type == "Moral")$value, mu=4)
 t.test(subset(dwn, Type == "Stereotypical")$value, mu=4)
 ```
 
-#Experiment 6a comparing "man" and "woman"
-```{r}
+# Experiment 6a Comparing "Man" and "Woman"
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
 
 #add version name "woman" for the "man" vs. "woman" variable in the joint dataset 
 dmn1 = dmn %>%
-  mutate(version = "M")
+  mutate(Category = "Man")
 
 #add version name "man" for the "man" vs. "woman" variable in the joint dataset 
 dwn1 = dwn %>%
-  mutate(version = "W")
+  mutate(Category = "Woman")
 
 #create the joint dataset
 dnorm = rbind(dmn1, dwn1)
 dnorm = na.omit(dnorm) %>%
-  mutate(Type = as.factor(Type))
+  mutate(Type = as.factor(Type),
+         Category = as.factor(Category))
+```
 
+## Graph
+
+```{r message=FALSE, warning=FALSE}
+#get stats for the graph (Figure 5a in the paper)
+
+gnorm = dnorm %>%
+   mutate(Concept = gsub("\\.", " ", Concept)) %>%
+  group_by(Type, Category) %>%
+  summarise(Mean = mean(value, na.rm=T),
+            upper = Mean+ci.high(value),
+            lower = Mean-ci.high(value)) 
+
+#create the graph (Figure 5a in the paper)
+
+ggplot(gnorm, aes(x=Category, y=Mean, fill = Type, label = round(Mean, digits=2))) + geom_bar(width = .5, stat="identity",position = position_dodge(width = .5)) + scale_x_discrete(name = "Gender Concept") + scale_fill_manual(name = "Transgression", values = c("grey85", "skyblue2")) + scale_y_continuous(name = "Serious violation of the ideal image of a man/woman", breaks = c(1:7))+ coord_cartesian(ylim=c(1,7)) + theme (axis.text.x = element_text(vjust=0.7, size=8, angle=0)) + theme (axis.text.y = element_text(vjust=0.7, size=9, angle=0))+theme_bw()+geom_bar(position="dodge", stat="identity", col = "black")+geom_errorbar(   aes( ymax=upper, ymin=lower ) , 
+                     		width   =.25,
+	                    	linetype="solid", position=position_dodge(.9)
+	                    	) + geom_text(size = 3, position = position_dodge(width=.9), col = "black", vjust=10) 
+
+```
+
+## Fitting maximal LMER models
+```{r message=FALSE, warning=FALSE}
 #compare man and woman
-lnorm = lmer(value~Type*version+(1+Type|index)+(1|Concept), dnorm)
+lnorm = lmer(value~Type*Category+(1+Type|index)+(1|Concept), dnorm)
 summary(lnorm)
 anova(lnorm)
 
 #get specific comparisons for how moral and stereotypic items, respectively, were rated differently for "man" and "woman"
 lsmeansLT(lnorm)
-
-#get stats for the graph
-aggnorm = dnorm %>%
-  group_by(Type, version) %>%
-  summarize(value = mean(value, na.rm=T)
-            )
-
-#create the graph
-ggplot(aggnorm, aes(x = Type, y = value, fill = version))+geom_bar(width = .5, stat="identity",position = position_dodge(width = .5)) +  scale_fill_manual(values = c("grey85", "skyblue2")) +theme_bw()
-
 ```
 
-#Experiment 6b "man"
-```{r}
+
+# Experiment 6b "Man"
+
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
 #turn the data into long form
 d6bm = dms %>%
   mutate(index=1:151) %>%
@@ -241,20 +300,30 @@ d6bm = dms %>%
 #sort the items into "stereotypical" and "moral"
 d6bm = within(d6bm, {Type = ifelse(Concept %in% c("Cowardly", "Emotional", "Submissive", "Gossipy", "Crying", "Caring.about.Appearance", "Not.Sticking.Up.for.Himself", "Not.Standing.Up.for.What.He.Believes.In"), "Stereotypical", "Moral")})
 
-#get stats for making the bar graph
+
+#get stats for making the bar graph for each specific item (figreu 6b in the paper)
 graph_6bm = d6bm %>%
+    mutate(Concept = gsub("\\.", " ", Concept)) %>%
   group_by(Concept, Type) %>%
   summarise(Mean = mean(value, na.rm=T),
             upper = Mean+ci.high(value),
-            lower = Mean-ci.low(value))
+            lower = Mean-ci.low(value)) 
+```
 
-#creating the graph
+## Graph 
+
+```{r  message=FALSE, warning=FALSE}
+#creating the graph for each specific item (Figure 6b in the paper)
+
 ggplot(graph_6bm, aes(x=reorder(Concept, Mean), y=Mean, fill = Type, label = round(Mean, digits=2))) + geom_bar(width = .5, stat="identity",position = position_dodge(width = .5)) + scale_x_discrete(name = "Transgression Item") + scale_fill_manual(values = c("grey85", "skyblue2")) + scale_y_continuous(name="Participants' endorsement of 'not truly a man'", breaks = c(1:7), sec.axis = sec_axis(~.*1, name = "Participants' endorsement of 'not truly a man'", breaks = c(1:7)))+ coord_flip(ylim=c(1,7)) + theme (axis.text.x = element_text(vjust=0.7, size=8, angle=0)) + theme (axis.text.y = element_text(vjust=0.7, size=9, angle=0))+theme_bw()+geom_bar(position="dodge", stat="identity", col = "black")+geom_errorbar(   aes( ymax=upper, ymin=lower ) , 
                      		width   =.25,
 	                    	linetype="solid", position=position_dodge(.9)
 	                    	)
+```
 
-##compare how well ratings for items in 6a correlate with ratings in the current survey [6b]
+## Experiment 6b Item Relation to Item Ratings in Experiment 6a, for "Man"
+
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
 dmss = d6bm %>% #ratings in 6b
   group_by(Concept) %>%
   summarise(Means = mean(value, na.rm=T))
@@ -265,12 +334,19 @@ dmnn = dmn %>% #ratings from 6a
 
 #join the the two datasets
 d_joint_m = merge(dmnn, dmss)
+```
+
+### Correlation
+```{r message=FALSE, warning=FALSE}
+##compare how well ratings for items in 6a correlate with ratings in the current survey [6b]
 
 #test the correlation between ratings of the two experiments for the same items. 
 cor.test(d_joint_m$Meann, d_joint_m$Means)
+```
 
-----------------------------------------------------
+## Experiment 6b T-Tests Comparing Moral vs. Stereotypical against the Mid-Point for "Man"
 
+```{r message=FALSE, warning=FALSE}
 #test whether mean for moral is significantly greater than 4
 t.test(subset(d6bm, Type == "Moral")$value, mu=4)
 
@@ -278,8 +354,9 @@ t.test(subset(d6bm, Type == "Moral")$value, mu=4)
 t.test(subset(d6bm, Type == "Stereotypical")$value, mu=4)
 ```
 
-#Experiment 6b "woman"
-```{r}
+# Experiment 6b "Woman"
+
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
 #turn data into long form
 d6bw = dws %>%
   mutate(index=152:303) %>%
@@ -287,21 +364,30 @@ d6bw = dws %>%
   group_by(index)
 
 #sort items into "stereotypical" and "moral"
-d6bw = within(dws_tidy, {Type = ifelse(Concept %in% c("Dominant", "Wanting.To.Be.Boss", "Rude", "Vulgar", "Not.Wanting.Children", "Emotionally.Cold", "Not.Cleaning.House", "Not.Caring.about.Appearance"), "Stereotypical", "Moral")})
+d6bw = within(d6bw, {Type = ifelse(Concept %in% c("Dominant", "Wanting.To.Be.Boss", "Rude", "Vulgar", "Not.Wanting.Children", "Emotionally.Cold", "Not.Cleaning.House", "Not.Caring.about.Appearance"), "Stereotypical", "Moral")})
 
-#get stats for graph
-aggws = dws_tidy %>%
+#get stats for graph (Figure 6b in the paper)
+aggws = d6bw %>%
+   mutate(Concept = gsub("\\.", " ", Concept)) %>%
   group_by(Concept, Type) %>%
   summarise(Mean = mean(value, na.rm=T),
             upper = Mean+ci.high(value),
             lower = Mean-ci.low(value))
+```
 
-#create graph
+## Graph
+
+```{r message=FALSE, warning=FALSE}
+#create graph (Figure 6b in the paper)
 ggplot(aggws, aes(x=reorder(Concept, Mean), y=Mean, fill = Type, label = round(Mean, digits=2))) + geom_bar(width = .5, stat="identity",position = position_dodge(width = .5)) + scale_x_discrete(name = "Transgression Item") + scale_fill_manual(values = c("grey85", "skyblue2")) + scale_y_continuous(name="Participants' endorsement of 'not truly a woman'", breaks = c(1:7), sec.axis = sec_axis(~.*1, name = "Participants' endorsement of 'not truly a woman'", breaks = c(1:7)))+ coord_flip(ylim=c(1,7)) + theme (axis.text.x = element_text(vjust=0.7, size=8, angle=0)) + theme (axis.text.y = element_text(vjust=0.7, size=9, angle=0))+theme_bw()+geom_bar(position="dodge", stat="identity", col = "black")+geom_errorbar(   aes( ymax=upper, ymin=lower ) , 
                      		width   =.25,
 	                    	linetype="solid", position=position_dodge(.9)
 	                    	)
+```
 
+## Experiment 6b Item Relation to Item Ratings in Experiment 6a, for "Woman"
+
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
 ##compare how well ratings for items in 6a correlate with ratings in the current survey [6b]
 dwss = d6bw %>%
   group_by(Concept) %>%
@@ -313,12 +399,18 @@ dwnn = dwn %>%
 
 #join the two datasets
 d_joint_w = merge(dwnn, dwss)
+```
 
+### Correlation
+
+```{r message=FALSE, warning=FALSE}
 ##test the correlation between ratings of the two experiments for the same items. 
 cor.test(d_joint_w$Meann, d_joint_w$Means)
+```
 
-----------------------------------------------------
-  
+## Experiment 6b T-Tests Comparing Moral vs. Stereotypical against the Mid-Point for "Woman"
+
+```{r message=FALSE, warning=FALSE}
 #test whether mean for moral is significantly less than 4 in 6b
 t.test(subset(d6bw, Type == "Moral")$value, mu=4)
 
@@ -326,29 +418,49 @@ t.test(subset(d6bw, Type == "Moral")$value, mu=4)
 t.test(subset(d6bw, Type == "Stereotypical")$value, mu=4, alternative="less")
 ```
 
-#Combine "man" and "woman" for 6b
-```{r}
+# Combine "Man" and "Woman" for 6b
+
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
 #select relevant variables
 vark = c("value", "Type", "Concept", "index")
 dws1 = d6bw[vark] #for "woman" in 6b
 
 #add version name "woman" for the "man" vs. "woman" variable in the joint dataset 
 dws1 = dws1 %>%
-  mutate(version = "W")
+  mutate(Category = "Woman")
 
 #select relevant variables
 dms1 = d6bm[vark] # for "man" in 6b
 
 #add version name "man" for the "man" vs. "woman" variable in the joint dataset 
 dms1 = dms1 %>%
-  mutate(version = "M")
+  mutate(Category = "Man")
 
 #create the joint dataset
 d_joint_c = rbind(dws1, dms1)
+
+#get stats for the graph (Figure 6a in the paper)
+gmain = d_joint_c %>%
+  group_by(Type, Category) %>%
+  summarise(Mean = mean(value, na.rm=T),
+            upper = Mean+ci.high(value),
+            lower = Mean-ci.low(value))
 ```
 
-#combine 6a and 6b for analysis
-```{r}
+## Graph 
+```{r message=FALSE, warning=FALSE}
+
+#make the graph (Figure 6a in the paper)
+ggplot(gmain, aes(x=Category, y=Mean, fill = Type, label = round(Mean, digits=2))) + geom_bar(width = .5, stat="identity",position = position_dodge(width = .5)) + scale_x_discrete(name = "Gender Concept") + scale_fill_manual(name = "Transgression", values = c("grey85", "skyblue2")) + scale_y_continuous(name="Participants' endorsement of 'not truly a X'", breaks = c(1:7))+ coord_cartesian(ylim=c(1,7)) + theme (axis.text.x = element_text(vjust=0.7, size=8, angle=0)) + theme (axis.text.y = element_text(vjust=0.7, size=9, angle=0))+theme_bw()+geom_bar(position="dodge", stat="identity", col = "black")+geom_errorbar(   aes( ymax=upper, ymin=lower ) , 
+                     		width   =.25,
+	                    	linetype="solid", position=position_dodge(.9)
+	                    	) + geom_text(size = 3, position = position_dodge(width=.9), col = "black", vjust=10) 
+
+```
+
+## Spearman Rank Correlation for Item Ratings between Exp. 6a and 6b. 
+
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
 #combining the datasets for 6a & 6b for "woman""
 dws11 = merge(dws1, dwnn, by.x = "Concept")
 #combining the datasets for 6a & 6b for "man""
@@ -356,7 +468,7 @@ dms11 = merge(dms1, dmnn, by.x = "Concept")
 #join combined man and woman datasets
 d_joint_p = rbind(dws11, dms11) %>%
   mutate(Type = as.factor(Type),
-         version = as.factor(version))
+         version = as.factor(Category))
 
 rank_1w = dws1 %>%
     group_by(Concept) %>%
@@ -365,20 +477,36 @@ rank_1w = dws1 %>%
 rank_1m = dms1 %>%
   group_by(Concept) %>%
   summarise(Mean = mean(value, na.rm=T))
+```
 
+```{r message=FALSE, warning=FALSE}
 #spearman rank order correlation to see whether the ranking of the items in 6a correlates with the ranking of the same items in 6b for "man" and "woman"
+
+#Woman
 cor.test(rank_1w$Mean, dwnn$Meann, method = "spearman")
+
+#Man
 cor.test(rank_1m$Mean, dmnn$Meann, method = "spearman")
+```
 
-#compare the model that considers the Exp. 6a ratings as a covariate and the model that doesn't consider the ratings as a covariate.
+## Fitting Maximal LMER Models
 
-pmix1 = lmer(value~Meann+Type*version+(1+Meann|Concept)+(1+Type|index), d_joint_p) #including the covariate
-pmix2 = lmer(value~Type*version+(1|Concept)+(1+Type|index), d_joint_p) #excluding the covariate
+```{r message=FALSE, warning=FALSE}
+#compare the model that considers the Exp. 6a ratings as a covariate and the model that doesn't consider the ratings as a covariate.6a
 
-anova(pmix1, pmix2)
+# Meann -- the mean ratings of items in Exp.6a
 
-#model 1 is significantly better
+# Model that includes ratings in Exp. 6a as a covariate
+pmix1 = lmer(value~Meann+Type*version+(1+Meann|Concept)+(1+Type|index), control = lmerControl(optimizer ='optimx', optCtrl=list(method='nlminb')), d_joint_p) 
 
+# Model that excludes ratings in Exp.6a as a covariate
+
+pmix2 = lmer(value~Type*version+(1|Concept)+(1+Type|index), control = lmerControl(optimizer ='optimx', optCtrl=list(method='nlminb')), d_joint_p) 
+
+#Compare the two models 
+anova(pmix1, pmix2) 
+
+#model 1 is significantly better -- We therefore report results from the model that include the covariate
 summary(pmix1)
 anova(pmix1)
 
