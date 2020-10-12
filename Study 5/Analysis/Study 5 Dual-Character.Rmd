@@ -1,9 +1,15 @@
 ---
-title: "Study 5"
-output: html_notebook
+title: "Experiment 5"
+author: "Cai Guo, Carol S. Dweck, & Ellen M. Markman"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
 ---
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -11,13 +17,10 @@ library(lmerTest)
 library(car)
 library(lme4)
 library(knitr)
-library(BayesFactor)
-library(gridExtra)
-library(cowplot)
 ```
 
-#clean up data and calculating demographics and basic descriptive data
-```{r}
+
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
 #load data
 dr = read.csv("~/Desktop/Stanford/Dual Character Concepts/Dual Character Concept Data/Study 5.csv")
 
@@ -28,11 +31,15 @@ dr_tidy = dr %>%
 
 #get the number of participants that remain
 num_1 = length(dr_tidy$subject)
+```
 
+# Demographics 
+```{r message=FALSE, warning=FALSE}
 #get participant mean age
 mean_age = mean(dr_tidy$Age)
 mean_age
 summary(dr_tidy$Age)
+
 #get participant gender information (1 == female, 2 == male)
 dr_tidy$Gender = as.factor(dr_tidy$Gender)
 sum_gender = summary(dr_tidy$Gender)
@@ -45,16 +52,23 @@ num_man1 = dr_tidy %>%
 num_mantot = length(num_man1$subject)
 num_mantot
 
-#get the numner of "woman" responses that remain
+#get the number of "woman" responses that remain
 
 num_woman1 = dr_tidy %>%
   filter(Woman >=1) 
 num_womantot = length(num_woman1$subject)
 num_womantot
+```
 
+# T-tests for Average Ratings of Statements. 
+```{r message=FALSE, warning=FALSE}
 #calculate the mean scores for "man" and "woman" and where they fall against the mid-point of the scale
 t.test(dr$Man, mu=4)
 t.test(dr$Woman, mu=4)
+```
+
+# Proportion of Those Who Gave a Rating Equal or Above the Mid-Point
+```{r }
 
 #filter out those who did not significantly endorse the naturalness of the statements
 dr_sig = dr_tidy %>%
@@ -93,7 +107,7 @@ After we filtered out those who did not give comprehensible answers, we have a t
 
 Among the 195 participants who responded to "man", 170 (87%) rated the naturalness of the "true man" statement with a 4 or above on a 7-point scale. Among the 190 participants who responded to "woman", 151 (79%) rated the naturalness of the "true woman" statement with a 4 or above on a 7-point scale. 
 
-#For "man"
+# Proportions of Response Categories For "Man"
 ```{r}
 #number of participants who had "moral" for "man"
 dr_manmoral = dr_sig %>%
@@ -131,7 +145,7 @@ prop.mot = num_mot/num_man
 prop.mot
 ```
 
-#For "woman"
+# Proportions of Response Categories For "Woman"
 ```{r}
 #number of participants who had "moral" for "woman"
 dr_wmanmoral = dr_sig %>%
@@ -169,7 +183,8 @@ prop.wmot = num_wmot/num_woman
 prop.wmot
 ```
 
-#making plots for the proportions comparing "man" and "woman"
+# Graph
+
 ```{r}
 woman_p = c(prop.wmanmoral, prop.wmstereo, prop.wmvague, prop.wmid, prop.wmot)
 man_p = c(prop.manmoral, prop.mstereo, prop.mvague, prop.mid, prop.mot)
@@ -184,7 +199,8 @@ ggplot(graph_w_tidy, aes(x=item, y=value, fill=Target,  label = round(value, dig
   theme_bw() + ggtitle("Proportion of Response Type") + geom_text(size = 3, position = position_dodge(width=.9), vjust=5) 
 ```
 
-#Compare the proportions of responses falling in each coding category for "man" and "woman" using chisq.test
+# Chisq.test Comparing Response Proportions for "Man" and "Woman" 
+
 ```{r}
 x = c(num_mmoral, num_mstereo, num_mvague, num_mid, num_mot) # "man"
 y = c(num_wmmoral, num_wmstereo, num_wmvague, num_wmid, num_wmot) #"woman"
